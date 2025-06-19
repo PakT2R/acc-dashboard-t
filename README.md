@@ -1,6 +1,6 @@
 # ACC Server Dashboard
 
-Dashboard web per la gestione e visualizzazione dati ACC Racing Community.
+Dashboard web per la gestione e visualizzazione dati ACC Terronia Racing
 
 ## 🚀 Utilizzo
 
