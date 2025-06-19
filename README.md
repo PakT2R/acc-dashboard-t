@@ -15,4 +15,4 @@ Accedi alla dashboard: [Link alla tua app quando sarà pubblicata]
 
 ## 🏁 Community
 
-**[E?]nigma Racing Community**
+**Terronia Racing Community**
