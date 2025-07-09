@@ -10,7 +10,7 @@ import sqlite3
 import json
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from pathlib import Path
 import plotly.express as px
 import plotly.graph_objects as go
@@ -340,7 +340,7 @@ class ACCWebDashboard:
                     result = cursor.fetchone()
                     stats[key] = result[0] if result else 0
                 except Exception as e:
-                    st.warning(f"⚠️ Errore nella query {key}: {e}")
+                    st.warning(f"⚠️ Error in query {key}: {e}")
                     stats[key] = 0
             
             # Ultima sessione
@@ -404,16 +404,16 @@ class ACCWebDashboard:
         
         # Info deployment per admin (solo in locale)
         if not self.is_github_deployment:
-            with st.expander("ℹ️ Info Sistema", expanded=False):
+            with st.expander("ℹ️ System Info", expanded=False):
                 st.write(f"**Database:** `{self.db_path}`")
-                st.write(f"**Configurazione:** Caricata")
-                st.write(f"**Ambiente:** Sviluppo Locale")
+                st.write(f"**Configuration:** Loaded")
+                st.write(f"**Environment:** Local Development")
         
         # Ottieni statistiche
         stats = self.get_database_stats()
         
         if not any(stats.values()):
-            st.warning("⚠️ Nessun dato disponibile nel database")
+            st.warning("⚠️ No data available in database")
             return
         
         # PRIMA RIGA - Layout a colonne per le metriche
@@ -423,7 +423,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{stats['total_drivers']}</p>
-                <p class="metric-label">👥 Piloti Registrati</p>
+                <p class="metric-label">👥 Registered Drivers</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -431,7 +431,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{stats['total_sessions']}</p>
-                <p class="metric-label">🎮 Sessioni Totali</p>
+                <p class="metric-label">🎮 Total Sessions</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -439,7 +439,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{stats['total_laps']:,}</p>
-                <p class="metric-label">🔄 Giri Totali</p>
+                <p class="metric-label">🔄 Total Laps</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -449,7 +449,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{avg_laps}</p>
-                <p class="metric-label">📊 Media Giri/Sessione</p>
+                <p class="metric-label">📊 Average Laps/Session</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -460,7 +460,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{stats['total_championships']}</p>
-                <p class="metric-label">🏆 Campionati Conclusi</p>
+                <p class="metric-label">🏆 Completed Championships</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -468,7 +468,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{stats['completed_competitions']}</p>
-                <p class="metric-label">🏁 Competizioni Campionati</p>
+                <p class="metric-label">🏁 Championship Competitions</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -477,7 +477,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{championship_sessions}</p>
-                <p class="metric-label">🎯 Sessioni Campionati</p>
+                <p class="metric-label">🎯 Championship Sessions</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -488,11 +488,11 @@ class ACCWebDashboard:
                     last_date = datetime.fromisoformat(stats['last_session'].replace('Z', '+00:00'))
                     days_ago = (datetime.now() - last_date).days
                     if days_ago == 0:
-                        last_text = "Oggi"
+                        last_text = "Today"
                     elif days_ago == 1:
-                        last_text = "Ieri"
+                        last_text = "Yesterday"
                     else:
-                        last_text = f"{days_ago} giorni fa"
+                        last_text = f"{days_ago} days ago"
                 except:
                     last_text = "N/A"
             else:
@@ -501,7 +501,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value" style="font-size: 1.8rem;">{last_text}</p>
-                <p class="metric-label">📅 Ultima Sessione Campionati</p>
+                <p class="metric-label">📅 Last Championship Session</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -517,7 +517,7 @@ class ACCWebDashboard:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("📊 Sessioni per Settimana")
+                st.subheader("📊 Sessions per Week")
                 
                 # Query per sessioni per settimana
                 query_sessions = """
@@ -545,14 +545,14 @@ class ACCWebDashboard:
                         color='sessions',
                         color_continuous_scale='blues'
                     )
-                    fig_sessions.update_xaxes(title="Settimana (Lunedì)")
+                    fig_sessions.update_xaxes(title="Week (Monday)")
                     fig_sessions.update_layout(height=400, showlegend=False)
                     st.plotly_chart(fig_sessions, use_container_width=True)
                 else:
-                    st.info("Nessun dato disponibile per il grafico sessioni")
+                    st.info("No data available for sessions chart")
             
             with col2:
-                st.subheader("👥 Piloti Più Attivi")
+                st.subheader("👥 Most Active Drivers")
                 
                 # Query per piloti più attivi
                 query_active = """
@@ -576,14 +576,14 @@ class ACCWebDashboard:
                         x='sessions', 
                         y='driver',
                         orientation='h',
-                        title="Top 10 Piloti per Attività",
+                        title="Top 10 Drivers by Activity",
                         color='sessions',
                         color_continuous_scale='greens'
                     )
                     fig_active.update_layout(height=400, showlegend=False)
                     st.plotly_chart(fig_active, use_container_width=True)
                 else:
-                    st.info("Nessun dato disponibile per il grafico attività")
+                    st.info("No data available for activity chart")
             
             conn.close()
             
@@ -608,8 +608,9 @@ class ACCWebDashboard:
                     description
                 FROM championships 
                 ORDER BY 
-                    CASE WHEN start_date IS NULL THEN 1 ELSE 0 END,
-                    start_date DESC,
+                    is_completed ASC,
+                    CASE WHEN end_date IS NULL THEN 1 ELSE 0 END,
+                    end_date DESC,
                     championship_id DESC
             """)
             
@@ -665,8 +666,10 @@ class ACCWebDashboard:
                 FROM competitions
                 WHERE championship_id = ?
                 ORDER BY 
+                    is_completed DESC,
                     CASE WHEN date_start IS NULL THEN 1 ELSE 0 END,
-                    date_start DESC,
+                    CASE WHEN is_completed = 1 THEN date_start END DESC,
+                    CASE WHEN is_completed = 0 THEN date_start END ASC,
                     round_number DESC
             """, (championship_id,))
             
@@ -794,11 +797,11 @@ class ACCWebDashboard:
         competitions = self.get_4fun_competitions_list()
         
         if not competitions:
-            st.warning("❌ Nessuna competizione 4Fun trovata nel database")
+            st.warning("❌ No 4Fun competitions found in database")
             st.info("""
-            **Le competizioni 4Fun sono:**
-            - Competizioni con `competition_id` valorizzato
-            - Competizioni con `championship_id` NULL (non appartengono a campionati)
+            **4Fun competitions are:**
+            - Competitions with `competition_id` valued
+            - Competitions with `championship_id` NULL (not belonging to championships)
             """)
             return
         
@@ -823,7 +826,7 @@ class ACCWebDashboard:
         
         # Selectbox competizione (default: prima = più recente)
         selected_competition = st.selectbox(
-            "🎮 Seleziona Competizione 4Fun:",
+            "🎮 Select 4Fun Competition:",
             options=competition_options,
             index=0,
             key="4fun_competition_select"
@@ -859,7 +862,7 @@ class ACCWebDashboard:
         comp_id, name, track, round_num, date_start, date_end, weekend_format, is_completed = competition_info
         
         # Risultati competizione (stesso metodo)
-        st.subheader("🏆 Classifica 4Fun")
+        st.subheader("🏆 4Fun Leaderboard")
         results_df = self.get_competition_results(competition_id)
         
         if not results_df.empty:
@@ -884,13 +887,13 @@ class ACCWebDashboard:
             
             column_names = {
                 'Pos': 'Pos',
-                'driver': 'Pilota',
-                'qualifying_position': 'Pos Quali',
-                'race_points': 'Punti Gara',
-                'pole_points': 'Punti Pole',
-                'fastest_lap_points': 'Punti GL',
-                'total_points': 'Tot Punti',
-                'Miglior Giro': 'Miglior Giro'
+                'driver': 'Driver',
+                'qualifying_position': 'Quali Pos',
+                'race_points': 'Race Points',
+                'pole_points': 'Pole Points',
+                'fastest_lap_points': 'Fast Lap Points',
+                'total_points': 'Total Points',
+                'Miglior Giro': 'Best Lap'
             }
             
             results_display = results_display[columns_to_show]
@@ -906,11 +909,11 @@ class ACCWebDashboard:
             self.show_4fun_charts(results_df)
             
         else:
-            st.warning("⚠️ Risultati competizione 4Fun non ancora calcolati")
+            st.warning("⚠️ 4Fun competition results not yet calculated")
         
         # Sessioni della competizione (stesso metodo)
         st.markdown("---")
-        st.subheader("🎮 Sessioni della Competizione 4Fun")
+        st.subheader("🎮 4Fun Competition Sessions")
         
         sessions = self.get_competition_sessions(competition_id)
         
@@ -926,7 +929,7 @@ class ACCWebDashboard:
                 # Header sessione
                 st.markdown(f"""
                 <div class="session-header">
-                    <strong>🏁 {session_type}</strong> - {date_str} | 👥 {total_drivers} piloti
+                    <strong>🏁 {session_type}</strong> - {date_str} | 👥 {total_drivers} drivers
                     {f'| ⚡ Best: {self.format_lap_time(best_lap_overall)}' if best_lap_overall else ''}
                 </div>
                 """, unsafe_allow_html=True)
@@ -944,24 +947,24 @@ class ACCWebDashboard:
                     )
                     
                     # Formatta tempo giro
-                    session_display['Miglior Giro'] = session_display['best_lap'].apply(
+                    session_display['Best Lap'] = session_display['best_lap'].apply(
                         lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
                     )
                     
                     # Formatta tempo totale
-                    session_display['Tempo Totale'] = session_display['total_time'].apply(
+                    session_display['Total Time'] = session_display['total_time'].apply(
                         lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
                     )
                     
                     # Seleziona colonne da mostrare
-                    columns_to_show = ['Pos', 'race_number', 'driver', 'lap_count', 'Miglior Giro', 'Tempo Totale']
+                    columns_to_show = ['Pos', 'race_number', 'driver', 'lap_count', 'Best Lap', 'Total Time']
                     column_names = {
                         'Pos': 'Pos',
                         'race_number': 'Num#',
-                        'driver': 'Pilota',
-                        'lap_count': 'Giri',
-                        'Miglior Giro': 'Miglior Giro',
-                        'Tempo Totale': 'Tempo Totale'
+                        'driver': 'Driver',
+                        'lap_count': 'Laps',
+                        'Best Lap': 'Best Lap',
+                        'Total Time': 'Total Time'
                     }
                     
                     session_display = session_display[columns_to_show]
@@ -974,11 +977,11 @@ class ACCWebDashboard:
                         hide_index=True
                     )
                 else:
-                    st.warning(f"⚠️ Nessun risultato trovato per {session_type}")
+                    st.warning(f"⚠️ No results found for {session_type}")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
         else:
-            st.warning("❌ Nessuna sessione trovata per questa competizione 4Fun")
+            st.warning("❌ No sessions found for this 4Fun competition")
     
     def show_4fun_charts(self, results_df: pd.DataFrame):
         """Mostra grafici specifici per competizioni 4Fun"""
@@ -988,7 +991,7 @@ class ACCWebDashboard:
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("📊 Distribuzione Punti 4Fun")
+            st.subheader("📊 4Fun Points Distribution")
             
             # Grafico punti totali (solo chi ha punti > 0)
             points_data = results_df[results_df['total_points'] > 0].copy()
@@ -1008,10 +1011,10 @@ class ACCWebDashboard:
                 fig_points.update_layout(height=400, showlegend=False)
                 st.plotly_chart(fig_points, use_container_width=True)
             else:
-                st.info("Nessun punto assegnato ancora")
+                st.info("No points assigned yet")
         
         with col2:
-            st.subheader("⚡ Performance Qualifiche vs Gara")
+            st.subheader("⚡ Qualifying vs Race Performance")
             
             # Scatter plot qualifiche vs gara (solo piloti classificati)
             scatter_data = results_df[
@@ -1046,17 +1049,17 @@ class ACCWebDashboard:
                 fig_scatter.update_xaxes(autorange="reversed")  # Posizione 1 a sinistra
                 st.plotly_chart(fig_scatter, use_container_width=True)
             else:
-                st.info("Dati insufficienti per il grafico performance")
+                st.info("Insufficient data for performance chart")
 
     def show_championships_report(self):
         """Mostra il report campionati"""
-        st.header("🏆 Report Campionati")
+        st.header("🏆 Championships Report")
         
         # Ottieni lista campionati
         championships = self.get_championships_list()
         
         if not championships:
-            st.warning("❌ Nessun campionato trovato nel database")
+            st.warning("❌ No championships found in database")
             return
         
         # Prepara opzioni per selectbox
@@ -1080,7 +1083,7 @@ class ACCWebDashboard:
         
         # Selectbox campionato
         selected_championship = st.selectbox(
-            "🏆 Seleziona Campionato:",
+            "🏆 Select Championship:",
             options=championship_options,
             index=0,
             key="championship_select"
@@ -1118,7 +1121,7 @@ class ACCWebDashboard:
                 st.markdown(header_html, unsafe_allow_html=True)
                 
                 # Classifica campionato
-                st.subheader("📊 Classifica Campionato")
+                st.subheader("📊 Championship Leaderboard")
                 standings_df = self.get_championship_standings(championship_id)
                 
                 if not standings_df.empty:
@@ -1139,13 +1142,13 @@ class ACCWebDashboard:
                     # Rinomina colonne
                     column_names = {
                         'Pos': 'Pos',
-                        'driver': 'Pilota',
-                        'total_points': 'Punti',
-                        'competitions_participated': 'Gare',
-                        'wins': 'Vittorie',
-                        'podiums': 'Podi',
-                        'poles': 'Pole',
-                        'fastest_laps': 'Giri Veloci'
+                        'driver': 'Driver',
+                        'total_points': 'Points',
+                        'competitions_participated': 'Races',
+                        'wins': 'Wins',
+                        'podiums': 'Podiums',
+                        'poles': 'Poles',
+                        'fastest_laps': 'Fast Laps'
                     }
                     
                     standings_display = standings_display[columns_to_show]
@@ -1174,14 +1177,14 @@ class ACCWebDashboard:
                                 x='wins',
                                 y='driver',
                                 orientation='h',
-                                title="Vittorie per Pilota nel Campionato",
+                                title="Wins by Driver in Championship",
                                 color='wins',
                                 color_continuous_scale='reds'
                             )
                             fig_wins.update_layout(height=400, showlegend=False)
                             st.plotly_chart(fig_wins, use_container_width=True)
                         else:
-                            st.info("Nessuna vittoria registrata ancora")
+                            st.info("No wins recorded yet")
                     
                     with col2:
                         # Grafico distribuzione podi
@@ -1191,15 +1194,15 @@ class ACCWebDashboard:
                                 podiums_data,
                                 names='driver',
                                 values='podiums',
-                                title="Distribuzione Podi"
+                                title="Podium Distribution"
                             )
                             fig_podiums.update_layout(height=400)
                             st.plotly_chart(fig_podiums, use_container_width=True)
                         else:
-                            st.info("Nessun podio registrato ancora")
+                            st.info("No podium recorded yet")
                 
                 else:
-                    st.warning("⚠️ Classifica campionato non ancora calcolata")
+                    st.warning("⚠️ Championship leaderboard not yet calculated")
                 
                 # Selezione competizione
                 st.markdown("---")
@@ -1207,17 +1210,17 @@ class ACCWebDashboard:
     
     def show_competition_selection(self, championship_id: int):
         """Mostra selezione e dettagli competizione"""
-        st.subheader("🏁 Competizioni del Campionato")
+        st.subheader("🏁 Championship Competitions")
         
         # Ottieni competizioni
         competitions = self.get_championship_competitions(championship_id)
         
         if not competitions:
-            st.warning("❌ Nessuna competizione trovata per questo campionato")
+            st.warning("❌ No competitions found for this championship")
             return
         
         # Prepara opzioni per selectbox
-        competition_options = ["Seleziona una competizione..."]
+        competition_options = ["Select a competition..."]
         competition_map = {}
         
         for comp_id, name, track, round_num, date_start, date_end, weekend_format, is_completed in competitions:
@@ -1233,13 +1236,13 @@ class ACCWebDashboard:
         
         # Selectbox competizione
         selected_competition = st.selectbox(
-            "🏁 Seleziona Competizione:",
+            "🏁 Select Competition:",
             options=competition_options,
             index=0,
             key="competition_select"
         )
         
-        if selected_competition and selected_competition != "Seleziona una competizione...":
+        if selected_competition and selected_competition != "Select a competition...":
             competition_id = competition_map[selected_competition]
             
             # Trova info competizione selezionata
@@ -1265,7 +1268,7 @@ class ACCWebDashboard:
         """, unsafe_allow_html=True)
         
         # Risultati competizione
-        st.subheader("🏆 Classifica Competizione")
+        st.subheader("🏆 Competition Leaderboard")
         results_df = self.get_competition_results(competition_id)
         
         if not results_df.empty:
@@ -1290,13 +1293,13 @@ class ACCWebDashboard:
             
             column_names = {
                 'Pos': 'Pos',
-                'driver': 'Pilota',
-                'qualifying_position': 'Pos Quali',
-                'race_points': 'Punti Gara',
-                'pole_points': 'Punti Pole',
-                'fastest_lap_points': 'Punti GL',
-                'total_points': 'Tot Punti',
-                'Miglior Giro': 'Miglior Giro'
+                'driver': 'Driver',
+                'qualifying_position': 'Quali Pos',
+                'race_points': 'Race Points',
+                'pole_points': 'Pole Points',
+                'fastest_lap_points': 'Fast Lap Points',
+                'total_points': 'Total Points',
+                'Miglior Giro': 'Best Lap'
             }
             
             results_display = results_display[columns_to_show]
@@ -1308,11 +1311,11 @@ class ACCWebDashboard:
                 hide_index=True
             )
         else:
-            st.warning("⚠️ Risultati competizione non ancora calcolati")
+            st.warning("⚠️ Competition results not yet calculated")
         
         # Sessioni della competizione
         st.markdown("---")
-        st.subheader("🎮 Sessioni della Competizione")
+        st.subheader("🎮 Competition Sessions")
         
         sessions = self.get_competition_sessions(competition_id)
         
@@ -1328,7 +1331,7 @@ class ACCWebDashboard:
                 # Header sessione
                 st.markdown(f"""
                 <div class="session-header">
-                    <strong>🏁 {session_type}</strong> - {date_str} | 👥 {total_drivers} piloti
+                    <strong>🏁 {session_type}</strong> - {date_str} | 👥 {total_drivers} drivers
                     {f'| ⚡ Best: {self.format_lap_time(best_lap_overall)}' if best_lap_overall else ''}
                 </div>
                 """, unsafe_allow_html=True)
@@ -1346,24 +1349,24 @@ class ACCWebDashboard:
                     )
                     
                     # Formatta tempo giro
-                    session_display['Miglior Giro'] = session_display['best_lap'].apply(
+                    session_display['Best Lap'] = session_display['best_lap'].apply(
                         lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
                     )
                     
                     # Formatta tempo totale
-                    session_display['Tempo Totale'] = session_display['total_time'].apply(
+                    session_display['Total Time'] = session_display['total_time'].apply(
                         lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
                     )
                     
                     # Seleziona colonne da mostrare
-                    columns_to_show = ['Pos', 'race_number', 'driver', 'lap_count', 'Miglior Giro', 'Tempo Totale']
+                    columns_to_show = ['Pos', 'race_number', 'driver', 'lap_count', 'Best Lap', 'Total Time']
                     column_names = {
                         'Pos': 'Pos',
                         'race_number': 'Num#',
-                        'driver': 'Pilota',
-                        'lap_count': 'Giri',
-                        'Miglior Giro': 'Miglior Giro',
-                        'Tempo Totale': 'Tempo Totale'
+                        'driver': 'Driver',
+                        'lap_count': 'Laps',
+                        'Best Lap': 'Best Lap',
+                        'Total Time': 'Total Time'
                     }
                     
                     session_display = session_display[columns_to_show]
@@ -1376,11 +1379,654 @@ class ACCWebDashboard:
                         hide_index=True
                     )
                 else:
-                    st.warning(f"⚠️ Nessun risultato trovato per {session_type}")
+                    st.warning(f"⚠️ No results found for {session_type}")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
         else:
-            st.warning("❌ Nessuna sessione trovata per questa competizione")
+            st.warning("❌ No sessions found for this competition")
+            
+    def show_sessions_report(self):
+        """Mostra il report Sessions con filtri e statistiche"""
+        st.header("🎮 Sessions Report")
+        
+        # Calcola date di default (ultima settimana)
+        today = datetime.now().date()
+        week_ago = today - timedelta(days=7)
+        
+        # Filtri data in colonne
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            date_from = st.date_input(
+                "📅 From Date:",
+                value=week_ago,
+                key="sessions_date_from"
+            )
+        
+        with col2:
+            date_to = st.date_input(
+                "📅 To Date:",
+                value=today,
+                key="sessions_date_to"
+            )
+        
+        # Validazione date
+        if date_from > date_to:
+            st.error("❌ 'From Date' must be before or equal to 'To Date'")
+            return
+        
+        # Ottieni statistiche per il periodo selezionato
+        st.markdown("---")
+        sessions_stats = self.get_sessions_statistics(date_from, date_to)
+        
+        if not any(sessions_stats.values()):
+            st.warning(f"⚠️ No sessions found in the selected period ({date_from} - {date_to})")
+            return
+        
+        # STATISTICHE PRINCIPALI
+        self.show_sessions_main_stats(sessions_stats)
+        
+        # SELEZIONE SESSIONE (STILE BEST LAP REPORT)
+        st.markdown("---")
+        
+        # Ottieni lista sessioni per selezione
+        sessions_list = self.get_sessions_list_with_details(date_from, date_to)
+        
+        if sessions_list.empty:
+            st.warning("⚠️ No sessions found for the selected period")
+            return
+        
+        # SELECTBOX SESSIONE (come nel Best Lap Report)
+        session_options = ["📊 General Summary"]
+        session_map = {}
+        
+        # Prepara opzioni ordinate per data/ora decrescente (più recenti prima)
+        sessions_sorted = sessions_list.sort_values('session_date', ascending=False)
+        
+        for idx, row in sessions_sorted.iterrows():
+            session_id = row['session_id']
+            track_name = row['track_name']
+            
+            # Formatta data e ora per visualizzazione
+            try:
+                date_obj = datetime.fromisoformat(row['session_date'].replace('Z', '+00:00'))
+                datetime_str = date_obj.strftime('%d/%m/%Y %H:%M')
+            except:
+                datetime_str = row['session_date'][:16] if row['session_date'] else 'N/A'
+            
+            # Status ufficiale/non ufficiale
+            status = "🏆" if pd.notna(row['competition_id']) else "❌"
+            
+            # Formato: session_id - track - datetime - status
+            display_name = f"{session_id} - {track_name} - {datetime_str} {status}"
+            
+            session_options.append(display_name)
+            session_map[display_name] = session_id
+        
+        # Selectbox per selezione sessione
+        selected_session_option = st.selectbox(
+            "🎮 Select Session:",
+            options=session_options,
+            index=0,  # General Summary selezionato di default
+            key="session_select"
+        )
+        
+        # Mostra contenuto basato sulla selezione
+        if selected_session_option == "📊 General Summary":
+            # Mostra riepilogo generale (tabella di tutte le sessioni)
+            st.markdown("---")
+            st.subheader("📋 Sessions List Summary")
+            self.show_sessions_summary_table(sessions_list)
+            
+        elif selected_session_option in session_map:
+            # Mostra dettagli della sessione specifica
+            selected_session_id = session_map[selected_session_option]
+            st.markdown("---")
+            self.show_session_details(selected_session_id)
+    
+    def show_sessions_summary_table(self, sessions_list: pd.DataFrame):
+        """Mostra tabella riassuntiva di tutte le sessioni (General Summary)"""
+        if sessions_list.empty:
+            st.warning("⚠️ No sessions found")
+            return
+        
+        # Prepara display sessioni per tabella riassuntiva
+        display_df = sessions_list.copy()
+        
+        # Nome sessione = session_id
+        display_df['Session'] = display_df['session_id']
+        
+        # Tipo sessione formattato
+        display_df['Type'] = display_df['session_type'].apply(
+            lambda x: self.format_session_type(x) if pd.notna(x) else "N/A"
+        )
+        
+        # Status ufficiale/non ufficiale
+        display_df['Status'] = display_df['competition_id'].apply(
+            lambda x: "🏆 Official" if pd.notna(x) else "❌ Unofficial"
+        )
+        
+        # Data formattata con ora
+        display_df['Date & Time'] = display_df['session_date'].apply(
+            lambda x: self.format_session_datetime(x) if pd.notna(x) else "N/A"
+        )
+        
+        # Winner info formattata
+        display_df['Winner'] = display_df['winner_name'].fillna("N/A")
+        
+        # Winner time formattata
+        display_df['Winner Time'] = display_df['winner_time'].apply(
+            lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
+        )
+        
+        # Seleziona colonne finali per display
+        columns_to_show = ['Session', 'Type', 'Status', 'track_name', 'Date & Time', 'total_drivers', 'Winner', 'Winner Time']
+        column_names = {
+            'Session': 'Session',
+            'Type': 'Type',
+            'Status': 'Status',
+            'track_name': 'Track',
+            'Date & Time': 'Date & Time',
+            'total_drivers': 'Drivers',
+            'Winner': 'Winner',
+            'Winner Time': 'Winner Time'
+        }
+        
+        final_display = display_df[columns_to_show].copy()
+        final_display.columns = [column_names[col] for col in columns_to_show]
+        
+        # Mostra tabella completa
+        st.dataframe(
+            final_display,
+            use_container_width=True,
+            hide_index=True,
+            height=500
+        )
+        
+        # Info riassuntive
+        total_sessions = len(final_display)
+        official_count = len(display_df[pd.notna(display_df['competition_id'])])
+        unofficial_count = total_sessions - official_count
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.info(f"📊 **{total_sessions}** total sessions in period")
+        
+        with col2:
+            st.success(f"🏆 **{official_count}** official sessions")
+        
+        with col3:
+            st.warning(f"❌ **{unofficial_count}** unofficial sessions")
+
+    def get_sessions_statistics(self, date_from: date, date_to: date) -> Dict:
+        """Ottiene statistiche sessioni per il periodo specificato - VERSIONE CORRETTA"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Converti date in string per query SQL
+            date_from_str = date_from.strftime('%Y-%m-%d')
+            date_to_str = (date_to + timedelta(days=1)).strftime('%Y-%m-%d')  # Include tutto il giorno 'to'
+            
+            # CORREZIONE: Statistiche sessioni separate dai driver
+            # 1. Statistiche sessioni (senza JOIN con session_results)
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total_sessions,
+                    COUNT(CASE WHEN competition_id IS NOT NULL THEN 1 END) as official_sessions,
+                    COUNT(CASE WHEN competition_id IS NULL THEN 1 END) as non_official_sessions
+                FROM sessions s
+                WHERE DATE(s.session_date) >= ? AND DATE(s.session_date) < ?
+            ''', (date_from_str, date_to_str))
+            
+            session_result = cursor.fetchone()
+            total_sessions, official, non_official = session_result
+            
+            # 2. Piloti unici separatamente
+            cursor.execute('''
+                SELECT 
+                    COUNT(DISTINCT sr.driver_id) as unique_drivers
+                FROM sessions s
+                JOIN session_results sr ON s.session_id = sr.session_id
+                WHERE DATE(s.session_date) >= ? AND DATE(s.session_date) < ?
+            ''', (date_from_str, date_to_str))
+            
+            driver_result = cursor.fetchone()
+            unique_drivers = driver_result[0] if driver_result else 0
+            
+            # Circuito con più sessioni (rimane invariato)
+            cursor.execute('''
+                SELECT 
+                    track_name,
+                    COUNT(*) as session_count
+                FROM sessions s
+                WHERE DATE(s.session_date) >= ? AND DATE(s.session_date) < ?
+                GROUP BY track_name
+                ORDER BY session_count DESC
+                LIMIT 1
+            ''', (date_from_str, date_to_str))
+            
+            track_result = cursor.fetchone()
+            most_used_track = track_result[0] if track_result else "N/A"
+            most_used_count = track_result[1] if track_result else 0
+            
+            # Ultima sessione (rimane invariato)
+            cursor.execute('''
+                SELECT 
+                    track_name,
+                    session_date,
+                    session_type
+                FROM sessions s
+                WHERE DATE(s.session_date) >= ? AND DATE(s.session_date) < ?
+                ORDER BY s.session_date DESC
+                LIMIT 1
+            ''', (date_from_str, date_to_str))
+            
+            last_result = cursor.fetchone()
+            
+            conn.close()
+            
+            return {
+                'total_sessions': total_sessions or 0,
+                'unique_drivers': unique_drivers or 0,
+                'official_sessions': official or 0,
+                'non_official_sessions': non_official or 0,
+                'most_used_track': most_used_track,
+                'most_used_count': most_used_count,
+                'last_session_track': last_result[0] if last_result else "N/A",
+                'last_session_date': last_result[1] if last_result else None,
+                'last_session_type': last_result[2] if last_result else "N/A"
+            }
+            
+        except Exception as e:
+            st.error(f"❌ Error retrieving sessions statistics: {e}")
+            return {}
+    
+    def show_sessions_main_stats(self, stats: Dict):
+        """Mostra statistiche principali delle sessioni"""
+        # Prima riga di metriche
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{stats['total_sessions']}</p>
+                <p class="metric-label">🎮 Total Sessions</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{stats['unique_drivers']}</p>
+                <p class="metric-label">👥 Unique Drivers</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{stats['official_sessions']}</p>
+                <p class="metric-label">🏆 Official Sessions</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{stats['non_official_sessions']}</p>
+                <p class="metric-label">❌ Unofficial Sessions</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Seconda riga di metriche
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value" style="font-size: 1.5rem;">{stats['most_used_track']}</p>
+                <p class="metric-label">🏁 Most Used Track</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{stats['most_used_count']}</p>
+                <p class="metric-label">📊 Sessions on Track</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            # Ultima sessione - circuito
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value" style="font-size: 1.5rem;">{stats['last_session_track']}</p>
+                <p class="metric-label">📍 Last Session Track</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            # Ultima sessione - data e ora
+            if stats['last_session_date']:
+                try:
+                    last_date = datetime.fromisoformat(stats['last_session_date'].replace('Z', '+00:00'))
+                    date_str = last_date.strftime('%d/%m %H:%M')
+                except:
+                    date_str = stats['last_session_date'][:16] if stats['last_session_date'] else "N/A"
+            else:
+                date_str = "N/A"
+            
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value" style="font-size: 1.3rem;">{date_str}</p>
+                <p class="metric-label">📅 Last Session Date</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    def get_sessions_list_with_details(self, date_from: date, date_to: date) -> pd.DataFrame:
+        """Ottiene lista sessioni con dettagli per il periodo specificato"""
+        date_from_str = date_from.strftime('%Y-%m-%d')
+        date_to_str = (date_to + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        query = '''
+            SELECT 
+                s.session_id,
+                s.session_type,
+                s.track_name,
+                s.session_date,
+                s.total_drivers,
+                s.competition_id,
+                s.is_official,
+                -- Winner info (posizione 1)
+                winner.driver_name as winner_name,
+                winner.total_time as winner_time,
+                winner.best_lap as winner_best_lap,
+                -- Competition info se disponibile
+                c.name as competition_name,
+                c.round_number
+            FROM sessions s
+            LEFT JOIN (
+                SELECT 
+                    sr.session_id,
+                    d.last_name as driver_name,
+                    sr.total_time,
+                    sr.best_lap
+                FROM session_results sr
+                JOIN drivers d ON sr.driver_id = d.driver_id
+                WHERE sr.position = 1
+            ) winner ON s.session_id = winner.session_id
+            LEFT JOIN competitions c ON s.competition_id = c.competition_id
+            WHERE DATE(s.session_date) >= ? AND DATE(s.session_date) < ?
+            ORDER BY s.session_date DESC
+        '''
+        
+        return self.safe_sql_query(query, [date_from_str, date_to_str])
+    
+    def show_session_details(self, session_id: str):
+        """Mostra dettagli completi della sessione selezionata (come nel 4Fun report)"""
+        # Ottieni info sessione
+        session_info = self.get_session_info(session_id)
+        
+        if not session_info:
+            st.error("❌ Session not found")
+            return
+        
+        # Header sessione
+        session_type, track_name, session_date, total_drivers, competition_id, competition_name, round_number = session_info
+        
+        # Formatta data
+        try:
+            date_obj = datetime.fromisoformat(session_date.replace('Z', '+00:00'))
+            date_str = date_obj.strftime('%d/%m/%Y %H:%M')
+        except:
+            date_str = session_date[:16] if session_date else 'N/A'
+        
+        # Titolo con info competizione se disponibile
+        if competition_name:
+            round_str = f"Round {round_number} - " if round_number else ""
+            header_title = f"🏆 {round_str}{competition_name} - {session_type}"
+            header_class = "competition-header"
+        else:
+            header_title = f"❌ Unofficial Session - {session_type}"
+            header_class = "fun-header"
+        
+        st.markdown(f"""
+        <div class="{header_class}">
+            <h3>{header_title}</h3>
+            <p>📍 {track_name} | 📅 {date_str} | 👥 {total_drivers} drivers</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Risultati sessione (stesso stile del 4Fun report)
+        st.subheader("🏁 Session Results")
+        session_results_df = self.get_session_results(session_id)
+        
+        if not session_results_df.empty:
+            # Formatta risultati sessione (stesso codice del 4Fun)
+            session_display = session_results_df.copy()
+            
+            # Aggiungi medaglie per primi 3
+            session_display['Pos'] = session_display['position'].apply(
+                lambda x: "🥇" if x == 1 else "🥈" if x == 2 else "🥉" if x == 3 else str(int(x)) if pd.notna(x) else "NC"
+            )
+            
+            # Formatta tempo giro
+            session_display['Best Lap'] = session_display['best_lap'].apply(
+                lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
+            )
+            
+            # Formatta tempo totale
+            session_display['Total Time'] = session_display['total_time'].apply(
+                lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
+            )
+            
+            # Seleziona colonne da mostrare
+            columns_to_show = ['Pos', 'race_number', 'driver', 'lap_count', 'Best Lap', 'Total Time']
+            column_names = {
+                'Pos': 'Pos',
+                'race_number': 'Num#',
+                'driver': 'Driver',
+                'lap_count': 'Laps',
+                'Best Lap': 'Best Lap',
+                'Total Time': 'Total Time'
+            }
+            
+            session_display = session_display[columns_to_show]
+            session_display.columns = [column_names[col] for col in columns_to_show]
+            
+            # Mostra tutti i risultati
+            st.dataframe(
+                session_display,
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Grafici se ci sono abbastanza dati
+            if len(session_results_df) > 3:
+                self.show_session_charts(session_results_df, session_type)
+                
+        else:
+            st.warning(f"⚠️ No results found for this session")
+    
+    def get_session_info(self, session_id: str) -> Optional[Tuple]:
+        """Ottiene informazioni base della sessione"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT 
+                    s.session_type,
+                    s.track_name,
+                    s.session_date,
+                    s.total_drivers,
+                    s.competition_id,
+                    c.name as competition_name,
+                    c.round_number
+                FROM sessions s
+                LEFT JOIN competitions c ON s.competition_id = c.competition_id
+                WHERE s.session_id = ?
+            ''', (session_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            return result
+            
+        except Exception as e:
+            st.error(f"❌ Error retrieving session info: {e}")
+            return None
+    
+    def show_session_charts(self, results_df: pd.DataFrame, session_type: str):
+        """Mostra grafici per la sessione - VERSIONE MIGLIORATA"""
+        if results_df.empty or len(results_df) < 4:
+            return
+        
+        st.markdown("---")
+        st.subheader("📊 Session Analysis")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # GRAFICO MIGLIORATO: Gap Analysis dal vincitore
+            st.subheader("⏱️ Gap Analysis from Winner")
+            
+            # FILTRO MIGLIORATO: Escludi piloti senza giro valido
+            valid_times = results_df[
+                (pd.notna(results_df['best_lap'])) & 
+                (results_df['best_lap'] > 0) &
+                (pd.notna(results_df['position'])) &
+                (results_df['position'] > 0) &
+                # Escludi tempi anomali (troppo veloci o troppo lenti)
+                (results_df['best_lap'] >= 30000) &  # Almeno 30 secondi
+                (results_df['best_lap'] <= 600000)   # Massimo 10 minuti
+            ].head(10).copy()
+            
+            if not valid_times.empty:
+                # Verifica che ci sia almeno un giro valido
+                if len(valid_times) == 0:
+                    st.info("⚠️ No drivers with valid lap times found")
+                    return
+                # Ordina per posizione
+                valid_times = valid_times.sort_values('position', ascending=True)
+                
+                # Calcola gap dal vincitore
+                winner_time = valid_times.iloc[0]['best_lap']
+                valid_times['gap_seconds'] = (valid_times['best_lap'] - winner_time) / 1000
+                
+                # Formatta per display
+                valid_times['gap_display'] = valid_times['gap_seconds'].apply(
+                    lambda x: f"+{x:.3f}s" if x > 0 else "Leader"
+                )
+                
+                # Converti tempi in formato MM:SS.sss per tooltip
+                valid_times['lap_time_formatted'] = valid_times['best_lap'].apply(
+                    lambda x: self.format_lap_time(x)
+                )
+                
+                # Crea grafico a barre orizzontale (più leggibile)
+                fig_gap = px.bar(
+                    valid_times,
+                    x='gap_seconds',
+                    y='driver',
+                    orientation='h',
+                    title=f"Gap from Winner - Best Lap Times (Top 10)",
+                    color='gap_seconds',
+                    color_continuous_scale='RdYlGn_r',  # Rosso = più lento, Verde = più veloce
+                    hover_data={
+                        'gap_seconds': False,  # Nascondi gap_seconds nel tooltip
+                        'gap_display': True,   # Mostra gap formattato
+                        'lap_time_formatted': True,  # Mostra tempo giro
+                        'position': True       # Mostra posizione
+                    }
+                )
+                
+                # Personalizza grafico
+                fig_gap.update_layout(
+                    height=400, 
+                    showlegend=False,
+                    xaxis_title="Gap from Winner (seconds)",
+                    yaxis_title="Driver"
+                )
+                
+                # Ordina Y axis per posizione (primo in alto)
+                fig_gap.update_yaxes(autorange="reversed")
+                
+                # Aggiungi linea di riferimento a 0 (vincitore)
+                fig_gap.add_vline(x=0, line_dash="dash", line_color="green", 
+                                 annotation_text="Winner", annotation_position="top")
+                
+                st.plotly_chart(fig_gap, use_container_width=True)
+                
+                # Info aggiuntive sotto il grafico
+                winner_name = valid_times.iloc[0]['driver']
+                winner_time_formatted = valid_times.iloc[0]['lap_time_formatted']
+                max_gap = valid_times['gap_seconds'].max()
+                total_valid_drivers = len(valid_times)
+                
+                st.info(f"🏆 **Winner**: {winner_name} ({winner_time_formatted}) | 📊 **Max Gap**: +{max_gap:.3f}s | 👥 **Valid Times**: {total_valid_drivers} drivers")
+                
+            else:
+                st.warning("❌ No drivers with valid lap times found for gap analysis")
+        
+        with col2:
+            # Grafico giri completati (rimane uguale, è già chiaro)
+            st.subheader("🔄 Laps Completed")
+            
+            laps_data = results_df[
+                (pd.notna(results_df['lap_count'])) & 
+                (results_df['lap_count'] > 0)
+            ].copy()
+            
+            if not laps_data.empty:
+                laps_data = laps_data.sort_values('lap_count', ascending=True)
+                
+                fig_laps = px.bar(
+                    laps_data,
+                    x='lap_count',
+                    y='driver',
+                    orientation='h',
+                    title="Laps Completed by Driver",
+                    color='lap_count',
+                    color_continuous_scale='greens'
+                )
+                fig_laps.update_layout(height=400, showlegend=False)
+                st.plotly_chart(fig_laps, use_container_width=True)
+            else:
+                st.info("No lap count data for chart")
+        
+        # GRAFICO AGGIUNTIVO: Distribuzione tempi (se ci sono molti piloti)
+        if len(valid_times) > 5:
+            st.subheader("📈 Lap Times Distribution")
+            
+            # Istogramma dei tempi giro
+            fig_hist = px.histogram(
+                valid_times,
+                x='gap_seconds',
+                nbins=min(10, len(valid_times)),
+                title="Distribution of Gap Times",
+                labels={'gap_seconds': 'Gap from Winner (seconds)', 'count': 'Number of Drivers'},
+                color_discrete_sequence=['lightblue']
+            )
+            
+            fig_hist.update_layout(
+                height=300,
+                showlegend=False,
+                bargap=0.1
+            )
+            
+            st.plotly_chart(fig_hist, use_container_width=True)
+    
+    def format_session_datetime(self, session_date: str) -> str:
+        """Formatta data e ora sessione per visualizzazione"""
+        try:
+            date_obj = datetime.fromisoformat(session_date.replace('Z', '+00:00'))
+            return date_obj.strftime('%d/%m/%Y %H:%M')
+        except:
+            return session_date[:16] if session_date else 'N/A'
 
     def show_best_laps_report(self):
         """Mostra il report Best Laps per pista"""
@@ -1390,7 +2036,7 @@ class ACCWebDashboard:
         tracks = self.get_tracks_list()
         
         if not tracks:
-            st.warning("❌ Nessuna pista trovata nel database")
+            st.warning("❌ No tracks found in database")
             return
         
         # Layout a due colonne per i filtri
@@ -1398,9 +2044,9 @@ class ACCWebDashboard:
         
         with col1:
             # Selectbox pista con riepilogo generale come prima opzione
-            track_options = ["📊 Riepilogo Generale"] + tracks
+            track_options = ["📊 General Summary"] + tracks
             selected_track = st.selectbox(
-                "🏁 Seleziona Pista:",
+                "🏁 Select Track:",
                 options=track_options,
                 index=0,  # Riepilogo generale selezionato di default
                 key="track_select"
@@ -1409,19 +2055,19 @@ class ACCWebDashboard:
         with col2:
             # Radio button per tipo statistiche
             stats_type = st.radio(
-                "📊 Tipo Statistiche:",
-                options=["Tutte le Sessioni", "Solo Competizioni Ufficiali"],
+                "📊 Statistics Type:",
+                options=["All Sessions", "Official Competitions Only"],
                 index=0,
                 key="stats_type_select"
             )
         
         # Mostra contenuto basato sulla selezione
-        official_only = (stats_type == "Solo Competizioni Ufficiali")
+        official_only = (stats_type == "Official Competitions Only")
         
-        if selected_track == "📊 Riepilogo Generale":
+        if selected_track == "📊 General Summary":
             # Mostra riepilogo generale di tutte le piste
             st.markdown("---")
-            st.subheader("🏁 Riepilogo Record per Pista")
+            st.subheader("🏁 Track Records Summary")
             self.show_all_tracks_summary(official_only)
             
         elif selected_track in tracks:
@@ -1445,29 +2091,13 @@ class ACCWebDashboard:
             st.error(f"❌ Errore nel recupero piste: {e}")
             return []
     
-    def get_tracks_list(self) -> List[str]:
-        """Ottiene lista piste disponibili nel database"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute('SELECT DISTINCT track_name FROM sessions ORDER BY track_name')
-            tracks = [row[0] for row in cursor.fetchall()]
-            
-            conn.close()
-            return tracks
-            
-        except Exception as e:
-            st.error(f"❌ Errore nel recupero piste: {e}")
-            return []
-    
     def show_all_tracks_summary(self, official_only: bool = False):
         """Mostra riepilogo record per tutte le piste"""
         
         summary_df = self.get_all_tracks_summary(official_only)
         
         if summary_df.empty:
-            st.warning("⚠️ Nessun dato disponibile per il riepilogo piste")
+            st.warning("⚠️ No data available for tracks summary")
             return
         
         # Prepara display summary
@@ -1477,6 +2107,9 @@ class ACCWebDashboard:
         summary_display['Record'] = summary_display['best_lap'].apply(
             lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
         )
+        
+        # Ordina per data originale (ISO format) decrescente prima di formattare
+        summary_display = summary_display.sort_values('session_date', ascending=False)
         
         # Formatta data
         summary_display['Data'] = summary_display['session_date'].apply(
@@ -1493,18 +2126,15 @@ class ACCWebDashboard:
         # Seleziona colonne finali
         columns_to_show = ['Pista', 'Record', 'driver_name', 'Data', 'Tipo']
         column_names = {
-            'Pista': 'Pista',
+            'Pista': 'Track',
             'Record': 'Record',
-            'driver_name': 'Pilota',
-            'Data': 'Data',
-            'Tipo': 'Tipo Sessione'
+            'driver_name': 'Driver',
+            'Data': 'Date',
+            'Tipo': 'Session Type'
         }
         
         final_display = summary_display[columns_to_show].copy()
         final_display.columns = [column_names[col] for col in columns_to_show]
-        
-        # Ordina per data decrescente (più recente prima)
-        final_display = final_display.sort_values('Data', ascending=False)
         
         st.dataframe(
             final_display,
@@ -1525,28 +2155,28 @@ class ACCWebDashboard:
             if len(top_holders) == 1:
                 # Un solo pilota con il massimo
                 display_text = top_holders[0]
-                record_text = f"{max_records} record detenuti"
+                record_text = f"{max_records} records held"
             else:
                 # Pareggio - mostra tutti
                 if len(top_holders) <= 3:
                     # Fino a 3 piloti: mostrali tutti
                     display_text = " • ".join(top_holders)
-                    record_text = f"{max_records} record ciascuno"
+                    record_text = f"{max_records} records each"
                 else:
                     # Più di 3: mostra primi 2 + "e altri X"
-                    display_text = f"{top_holders[0]} • {top_holders[1]} • e altri {len(top_holders)-2}"
-                    record_text = f"{max_records} record ciascuno"
+                    display_text = f"{top_holders[0]} • {top_holders[1]} • and {len(top_holders)-2} others"
+                    record_text = f"{max_records} records each"
         else:
             display_text = "N/A"
-            record_text = "0 record"
+            record_text = "0 records"
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.info(f"📊 **{total_tracks}** piste con dati disponibili")
+            st.info(f"📊 **{total_tracks}** tracks with available data")
         
         with col2:
-            st.success(f"🏆 **Pilota/i con più record**: {display_text}")
+            st.success(f"🏆 **Driver(s) with most records**: {display_text}")
         
         with col3:
             st.info(f"🎯 **{record_text}**")
@@ -1600,7 +2230,7 @@ class ACCWebDashboard:
         """Mostra dettagli completi per la pista selezionata"""
         
         # Header pista con indicatore tipo statistiche
-        stats_indicator = "🏆 Solo Competizioni Ufficiali" if official_only else "📊 Tutte le Sessioni"
+        stats_indicator = "🏆 Official Competitions Only" if official_only else "📊 All Sessions"
         
         st.markdown(f"""
         <div class="championship-header">
@@ -1613,7 +2243,7 @@ class ACCWebDashboard:
         track_stats = self.get_track_statistics(track_name, official_only)
         
         if not any(track_stats.values()):
-            st.warning("⚠️ Nessun dato disponibile per questa pista con i filtri selezionati")
+            st.warning("⚠️ No data available for this track with selected filters")
             return
         
         # Prima riga: Statistiche generali
@@ -1623,7 +2253,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{track_stats['total_sessions']}</p>
-                <p class="metric-label">🎮 Sessioni Totali</p>
+                <p class="metric-label">🎮 Total Sessions</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1679,7 +2309,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{avg_laps}</p>
-                <p class="metric-label">📊 Media Giri/Sessione</p>
+                <p class="metric-label">📊 Average Laps/Session</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1691,11 +2321,11 @@ class ACCWebDashboard:
                     last_date = datetime.fromisoformat(last_session.replace('Z', '+00:00'))
                     days_ago = (datetime.now() - last_date).days
                     if days_ago == 0:
-                        last_text = "Oggi"
+                        last_text = "Today"
                     elif days_ago == 1:
-                        last_text = "Ieri"
+                        last_text = "Yesterday"
                     else:
-                        last_text = f"{days_ago} giorni fa"
+                        last_text = f"{days_ago} days ago"
                 except:
                     last_text = "N/A"
             else:
@@ -1710,7 +2340,7 @@ class ACCWebDashboard:
         
         # Classifica Best Laps
         st.markdown("---")
-        st.subheader("🏆 Classifica Best Laps per Pilota")
+        st.subheader("🏆 Best Laps Leaderboard by Driver")
         
         leaderboard_df = self.get_track_leaderboard(track_name, official_only)
         
@@ -1725,7 +2355,7 @@ class ACCWebDashboard:
             )
             
             # Formatta tempi
-            leaderboard_display['Tempo Migliore'] = leaderboard_display['best_lap'].apply(
+            leaderboard_display['Best Time'] = leaderboard_display['best_lap'].apply(
                 lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
             )
             
@@ -1739,20 +2369,20 @@ class ACCWebDashboard:
                 leaderboard_display['Gap'] = "-"
             
             # Formatta data
-            leaderboard_display['Data Record'] = leaderboard_display['session_date'].apply(
+            leaderboard_display['Record Date'] = leaderboard_display['session_date'].apply(
                 lambda x: self.format_session_date(x) if pd.notna(x) else "N/A"
             )
             
             # Seleziona colonne finali
-            columns_to_show = ['Pos', 'driver_name', 'Tempo Migliore', 'Gap', 'total_laps', 'Data Record', 'session_type']
+            columns_to_show = ['Pos', 'driver_name', 'Best Time', 'Gap', 'total_laps', 'Record Date', 'session_type']
             column_names = {
                 'Pos': 'Pos',
                 'driver_name': 'Pilota',
-                'Tempo Migliore': 'Tempo Migliore',
+                'Best Time': 'Best Time',
                 'Gap': 'Gap',
-                'total_laps': 'Giri Totali',
-                'Data Record': 'Data Record',
-                'session_type': 'Tipo Sessione'
+                'total_laps': 'Total Laps',
+                'Record Date': 'Record Date',
+                'session_type': 'Session Type'
             }
             
             final_display = leaderboard_display[columns_to_show].copy()
@@ -1768,22 +2398,22 @@ class ACCWebDashboard:
             
             # Analisi gap per i top 10
             if len(leaderboard_display) > 1:
-                st.subheader("⏱️ Analisi Gap Top 10")
+                st.subheader("⏱️ Top 10 Gap Analysis")
                 
                 top_10 = leaderboard_display.head(10)
                 gap_analysis = []
                 
                 for idx, row in top_10.iterrows():
                     if idx == 0:  # Leader
-                        gap_analysis.append(f"🥇 **{row['driver_name']}**: {row['Tempo Migliore']} (Leader)")
+                        gap_analysis.append(f"🥇 **{row['driver_name']}**: {row['Best Time']} (Leader)")
                     else:
-                        gap_analysis.append(f"   {row['Pos']}. **{row['driver_name']}**: {row['Tempo Migliore']} ({row['Gap']})")
+                        gap_analysis.append(f"   {row['Pos']}. **{row['driver_name']}**: {row['Best Time']} ({row['Gap']})")
                 
                 for line in gap_analysis:
                     st.markdown(line)
         
         else:
-            st.warning("⚠️ Nessun dato disponibile per la classifica")
+            st.warning("⚠️ No data available for leaderboard")
         
         # Grafici
         st.markdown("---")
@@ -1793,7 +2423,7 @@ class ACCWebDashboard:
         """Mostra dettagli completi per la pista selezionata"""
         
         # Header pista con indicatore tipo statistiche
-        stats_indicator = "🏆 Solo Competizioni Ufficiali" if official_only else "📊 Tutte le Sessioni"
+        stats_indicator = "🏆 Official Competitions Only" if official_only else "📊 All Sessions"
         
         st.markdown(f"""
         <div class="championship-header">
@@ -1806,7 +2436,7 @@ class ACCWebDashboard:
         track_stats = self.get_track_statistics(track_name, official_only)
         
         if not any(track_stats.values()):
-            st.warning("⚠️ Nessun dato disponibile per questa pista con i filtri selezionati")
+            st.warning("⚠️ No data available for this track with selected filters")
             return
         
         # Prima riga: Statistiche generali
@@ -1816,7 +2446,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{track_stats['total_sessions']}</p>
-                <p class="metric-label">🎮 Sessioni Totali</p>
+                <p class="metric-label">🎮 Total Sessions</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1872,7 +2502,7 @@ class ACCWebDashboard:
             st.markdown(f"""
             <div class="metric-card">
                 <p class="metric-value">{avg_laps}</p>
-                <p class="metric-label">📊 Media Giri/Sessione</p>
+                <p class="metric-label">📊 Average Laps/Session</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1884,11 +2514,11 @@ class ACCWebDashboard:
                     last_date = datetime.fromisoformat(last_session.replace('Z', '+00:00'))
                     days_ago = (datetime.now() - last_date).days
                     if days_ago == 0:
-                        last_text = "Oggi"
+                        last_text = "Today"
                     elif days_ago == 1:
-                        last_text = "Ieri"
+                        last_text = "Yesterday"
                     else:
-                        last_text = f"{days_ago} giorni fa"
+                        last_text = f"{days_ago} days ago"
                 except:
                     last_text = "N/A"
             else:
@@ -1903,7 +2533,7 @@ class ACCWebDashboard:
         
         # Classifica Best Laps
         st.markdown("---")
-        st.subheader("🏆 Classifica Best Laps per Pilota")
+        st.subheader("🏆 Best Laps Leaderboard by Driver")
         
         leaderboard_df = self.get_track_leaderboard(track_name, official_only)
         
@@ -1918,7 +2548,7 @@ class ACCWebDashboard:
             )
             
             # Formatta tempi
-            leaderboard_display['Tempo Migliore'] = leaderboard_display['best_lap'].apply(
+            leaderboard_display['Best Time'] = leaderboard_display['best_lap'].apply(
                 lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
             )
             
@@ -1932,20 +2562,20 @@ class ACCWebDashboard:
                 leaderboard_display['Gap'] = "-"
             
             # Formatta data
-            leaderboard_display['Data Record'] = leaderboard_display['session_date'].apply(
+            leaderboard_display['Record Date'] = leaderboard_display['session_date'].apply(
                 lambda x: self.format_session_date(x) if pd.notna(x) else "N/A"
             )
             
             # Seleziona colonne finali
-            columns_to_show = ['Pos', 'driver_name', 'Tempo Migliore', 'Gap', 'total_laps', 'Data Record', 'session_type']
+            columns_to_show = ['Pos', 'driver_name', 'Best Time', 'Gap', 'total_laps', 'Record Date', 'session_type']
             column_names = {
                 'Pos': 'Pos',
                 'driver_name': 'Pilota',
-                'Tempo Migliore': 'Tempo Migliore',
+                'Best Time': 'Best Time',
                 'Gap': 'Gap',
-                'total_laps': 'Giri Totali',
-                'Data Record': 'Data Record',
-                'session_type': 'Tipo Sessione'
+                'total_laps': 'Total Laps',
+                'Record Date': 'Record Date',
+                'session_type': 'Session Type'
             }
             
             final_display = leaderboard_display[columns_to_show].copy()
@@ -1961,22 +2591,22 @@ class ACCWebDashboard:
             
             # Analisi gap per i top 10
             if len(leaderboard_display) > 1:
-                st.subheader("⏱️ Analisi Gap Top 10")
+                st.subheader("⏱️ Top 10 Gap Analysis")
                 
                 top_10 = leaderboard_display.head(10)
                 gap_analysis = []
                 
                 for idx, row in top_10.iterrows():
                     if idx == 0:  # Leader
-                        gap_analysis.append(f"🥇 **{row['driver_name']}**: {row['Tempo Migliore']} (Leader)")
+                        gap_analysis.append(f"🥇 **{row['driver_name']}**: {row['Best Time']} (Leader)")
                     else:
-                        gap_analysis.append(f"   {row['Pos']}. **{row['driver_name']}**: {row['Tempo Migliore']} ({row['Gap']})")
+                        gap_analysis.append(f"   {row['Pos']}. **{row['driver_name']}**: {row['Best Time']} ({row['Gap']})")
                 
                 for line in gap_analysis:
                     st.markdown(line)
         
         else:
-            st.warning("⚠️ Nessun dato disponibile per la classifica")
+            st.warning("⚠️ No data available for leaderboard")
         
         # Grafici
         st.markdown("---")
@@ -2080,13 +2710,13 @@ class ACCWebDashboard:
     def show_track_charts(self, track_name: str, official_only: bool, leaderboard_df: pd.DataFrame):
         """Mostra grafici per la pista"""
         if leaderboard_df.empty:
-            st.info("Nessun dato disponibile per i grafici")
+            st.info("No data available for charts")
             return
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("📊 Distribuzione Tempi Top 20")
+            st.subheader("📊 Top 20 Times Distribution")
             
             # Grafico distribuzione tempi dei primi 20
             top_20 = leaderboard_df.head(20).copy()
@@ -2108,10 +2738,10 @@ class ACCWebDashboard:
                 fig_times.update_yaxes(title="Tempo (secondi)")
                 st.plotly_chart(fig_times, use_container_width=True)
             else:
-                st.info("Dati insufficienti per il grafico distribuzione")
+                st.info("Insufficient data for distribution chart")
         
         with col2:
-            st.subheader("🔄 Attività per Pilota")
+            st.subheader("🔄 Activity per Driver")
             
             # Grafico giri totali per pilota (top 15 più attivi)
             activity_data = leaderboard_df.nlargest(15, 'total_laps').copy()
@@ -2130,11 +2760,11 @@ class ACCWebDashboard:
                 fig_activity.update_layout(height=400, showlegend=False)
                 st.plotly_chart(fig_activity, use_container_width=True)
             else:
-                st.info("Dati insufficienti per il grafico attività")
+                st.info("Insufficient data for activity chart")
         
         # Grafico evoluzione record nel tempo (se abbastanza dati)
         if len(leaderboard_df) > 5:
-            st.subheader("📈 Evoluzione Performance")
+            st.subheader("📈 Performance Evolution")
             
             # Ottieni dati storici per grafico evoluzione
             evolution_data = self.get_track_evolution_data(track_name, official_only)
@@ -2152,7 +2782,7 @@ class ACCWebDashboard:
                 fig_evolution.update_xaxes(title="Data")
                 st.plotly_chart(fig_evolution, use_container_width=True)
             else:
-                st.info("Dati insufficienti per il grafico evoluzione")
+                st.info("Insufficient data for evolution chart")
     
     def get_track_evolution_data(self, track_name: str, official_only: bool = False) -> pd.DataFrame:
         """Ottiene dati evoluzione record nel tempo"""
@@ -2258,21 +2888,25 @@ class ACCWebDashboard:
                 </style>
                 """, unsafe_allow_html=True)
                 
-                # Link social
-                st.markdown("""
-                <div style="text-align: center; margin: 1rem 0;">
-                    <a href="https://www.thesimgrid.com/communities/enigma-overdrive" target="_blank" style="text-decoration: none; margin: 0 1rem;">
-                        <button style="background: linear-gradient(90deg, #ff6b35, #ff8c42); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                            🏆 SimGrid Community
-                        </button>
-                    </a>
-                    <a href="https://discord.gg/HRBkPehkxE" target="_blank" style="text-decoration: none; margin: 0 1rem;">
-                        <button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                            💬 Join Discord
-                        </button>
-                    </a>
-                </div>
-                """, unsafe_allow_html=True)
+                # Link social (solo se configurati)
+                social_config = self.config.get('social', {})
+                discord_url = social_config.get('discord')
+                simgrid_url = social_config.get('simgrid')
+                
+                if discord_url or simgrid_url:
+                    social_buttons = []
+                    
+                    if simgrid_url:
+                        social_buttons.append(f'<a href="{simgrid_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #ff6b35, #ff8c42); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">🏆 SimGrid Community</button></a>')
+                    
+                    if discord_url:
+                        social_buttons.append(f'<a href="{discord_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">💬 Join Discord</button></a>')
+                    
+                    st.markdown(f"""
+                    <div style="text-align: center; margin: 1rem 0;">
+                        {''.join(social_buttons)}
+                    </div>
+                    """, unsafe_allow_html=True)
                 
             else:
                 # Fallback con il riquadro blu originale se non c'è il banner
@@ -2284,21 +2918,25 @@ class ACCWebDashboard:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Link social
-                st.markdown("""
-                <div style="text-align: center; margin: 1rem 0;">
-                    <a href="https://www.thesimgrid.com/communities/enigma-overdrive" target="_blank" style="text-decoration: none; margin: 0 1rem;">
-                        <button style="background: linear-gradient(90deg, #ff6b35, #ff8c42); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                            🏆 SimGrid Community
-                        </button>
-                    </a>
-                    <a href="https://discord.gg/HRBkPehkxE" target="_blank" style="text-decoration: none; margin: 0 1rem;">
-                        <button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                            💬 Join Discord
-                        </button>
-                    </a>
-                </div>
-                """, unsafe_allow_html=True)
+                # Link social (solo se configurati)
+                social_config = self.config.get('social', {})
+                discord_url = social_config.get('discord')
+                simgrid_url = social_config.get('simgrid')
+                
+                if discord_url or simgrid_url:
+                    social_buttons = []
+                    
+                    if simgrid_url:
+                        social_buttons.append(f'<a href="{simgrid_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #ff6b35, #ff8c42); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">🏆 SimGrid Community</button></a>')
+                    
+                    if discord_url:
+                        social_buttons.append(f'<a href="{discord_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">💬 Join Discord</button></a>')
+                    
+                    st.markdown(f"""
+                    <div style="text-align: center; margin: 1rem 0;">
+                        {''.join(social_buttons)}
+                    </div>
+                    """, unsafe_allow_html=True)
         except Exception as e:
             # Fallback in caso di errore
             pass
@@ -2310,24 +2948,25 @@ def main():
         dashboard = ACCWebDashboard()
         
         # Sidebar per navigazione
-        st.sidebar.title("🏁 Navigazione")
+        st.sidebar.title("🏁 Navigation")
         
         # Info versione per admin (solo in locale)
         if not dashboard.is_github_deployment:
             st.sidebar.markdown("---")
-            st.sidebar.markdown("**🔧 Modalità Sviluppo**")
+            st.sidebar.markdown("**🔧 Development Mode**")
             st.sidebar.markdown(f"DB: `{os.path.basename(dashboard.db_path)}`")
         
         # Menu principale
         page = st.sidebar.selectbox(
-            "Seleziona pagina:",
+            "Select page:",
             [
                 "🏠 Homepage",
-                "🏆 Report Campionati",
-                "🎮 Report Official 4Fun",
-                "🏁 Report Best Lap",
-                "👤 Report Piloti",
-                "📊 Statistiche Avanzate"
+                "🏆 Championships Report",
+                "🎮 Official 4Fun Report",
+                "🏁 Best Lap Report",
+                "🎮 Sessions Report",
+                "👤 Drivers Report",
+                "📊 Advanced Statistics"
             ]
         )
         
@@ -2335,22 +2974,25 @@ def main():
         if page == "🏠 Homepage":
             dashboard.show_homepage()
         
-        elif page == "🏆 Report Campionati":
+        elif page == "🏆 Championships Report":
             dashboard.show_championships_report()
         
-        elif page == "🎮 Report Official 4Fun":
+        elif page == "🎮 Official 4Fun Report":
             dashboard.show_4fun_report()
         
-        elif page == "🏁 Report Best Lap":
+        elif page == "🏁 Best Lap Report":
             dashboard.show_best_laps_report()
+
+        elif page == "🎮 Sessions Report":
+            dashboard.show_sessions_report()
+
+        elif page == "👤 Drivers Report":
+            st.header("👤 Drivers Report")
+            st.info("🚧 Section under development - will be implemented soon")
         
-        elif page == "👤 Report Piloti":
-            st.header("👤 Report Piloti")
-            st.info("🚧 Sezione in sviluppo - sarà implementata prossimamente")
-        
-        elif page == "📊 Statistiche Avanzate":
-            st.header("📊 Statistiche Avanzate")
-            st.info("🚧 Sezione in sviluppo - sarà implementata prossimamente")
+        elif page == "📊 Advanced Statistics":
+            st.header("📊 Advanced Statistics")
+            st.info("🚧 Section under development - will be implemented soon")
         
         # Footer
         st.sidebar.markdown("---")
