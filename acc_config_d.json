@@ -3,6 +3,10 @@
         "name": "Terronia Racing",
         "description": "if you see this please edit it in acc_config.json"
     },
+    "social": {
+        "discord": "https://discord.gg/HRBkPehkxE",
+        "simgrid": "https://www.thesimgrid.com/teams/11031-terronia-racing/grid_feed"
+    },	
     "database": {
         "path": "acc_stats.db"
     }
