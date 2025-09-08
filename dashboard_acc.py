@@ -2640,6 +2640,491 @@ class ACCWebDashboard:
         except:
             return session_date[:10] if session_date else 'N/A'
 
+    def show_drivers_report(self):
+        """Mostra il report Drivers con selezione generale o per pilota specifico"""
+        st.header("👤 Drivers Report")
+        
+        # Ottieni lista piloti
+        drivers = self.get_drivers_list()
+        
+        if not drivers:
+            st.warning("❌ No drivers found in database")
+            return
+        
+        # Selectbox pilota con riepilogo generale come prima opzione
+        driver_options = ["📊 General Summary"] + [f"{driver['last_name']}" for driver in drivers]
+        selected_driver = st.selectbox(
+            "👤 Select Driver:",
+            options=driver_options,
+            index=0,  # Riepilogo generale selezionato di default
+            key="driver_select"
+        )
+        
+        if selected_driver == "📊 General Summary":
+            # Mostra riepilogo generale di tutti i piloti
+            st.markdown("---")
+            st.subheader("👤 Drivers General Summary")
+            self.show_all_drivers_summary()
+            
+        else:
+            # Trova il pilota selezionato
+            selected_driver_data = next((d for d in drivers if d['last_name'] == selected_driver), None)
+            if selected_driver_data:
+                # Mostra dettagli del pilota specifico
+                st.markdown("---")
+                self.show_driver_details(selected_driver_data)
+    
+    def get_drivers_list(self) -> List[Dict]:
+        """Ottiene lista piloti disponibili nel database ordinata alfabeticamente"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            query = '''
+                SELECT DISTINCT d.driver_id, d.last_name, d.short_name
+                FROM drivers d
+                WHERE EXISTS (
+                    SELECT 1 FROM laps l WHERE l.driver_id = d.driver_id
+                )
+                ORDER BY LOWER(d.last_name)
+            '''
+            cursor.execute(query)
+            drivers = []
+            for row in cursor.fetchall():
+                drivers.append({
+                    'driver_id': row[0],
+                    'last_name': row[1],
+                    'short_name': row[2]
+                })
+            
+            conn.close()
+            return drivers
+            
+        except Exception as e:
+            st.error(f"❌ Errore nel recupero piloti: {e}")
+            return []
+    
+    def show_all_drivers_summary(self):
+        """Mostra riepilogo generale di tutti i piloti"""
+        
+        summary_df = self.get_all_drivers_summary()
+        
+        if summary_df.empty:
+            st.warning("⚠️ No data available for drivers summary")
+            return
+        
+        # Prepara display summary
+        summary_display = summary_df.copy()
+        
+        # Ordina alfabeticamente per nome (case-insensitive)
+        summary_display['driver_name_lower'] = summary_display['driver_name'].str.lower()
+        summary_display = summary_display.sort_values('driver_name_lower', ascending=True).drop('driver_name_lower', axis=1)
+        
+        # Seleziona colonne finali con i nomi desiderati
+        columns_to_show = ['driver_name', 'number', 'championships', 'wins', 'poles', 'podiums', 'records']
+        column_names = {
+            'driver_name': '👤 Driver Name',
+            'number': '🏁 Car Number',
+            'championships': '🏆 Titles Won',
+            'wins': '🥇 Wins',
+            'poles': '🚩 Poles',
+            'podiums': '🏅 Podiums',
+            'records': '📊 Records'
+        }
+        
+        final_display = summary_display[columns_to_show].copy()
+        final_display.columns = [column_names[col] for col in columns_to_show]
+        
+        # Riempi valori mancanti con 0
+        final_display = final_display.fillna(0)
+        
+        st.dataframe(
+            final_display,
+            use_container_width=True,
+            hide_index=True,
+            height=400
+        )
+        
+        # Info aggiuntive
+        total_drivers = len(summary_display)
+        total_championships = summary_display['championships'].sum()
+        total_records = summary_display['records'].sum()
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.info(f"👥 **{total_drivers}** registered drivers")
+        
+        with col2:
+            st.success(f"🏆 **{int(total_championships)}** total championships won")
+        
+        with col3:
+            st.info(f"📊 **{int(total_records)}** track records held")
+    
+    def get_all_drivers_summary(self) -> pd.DataFrame:
+        """Ottiene riepilogo generale di tutti i piloti"""
+        
+        query = '''
+            SELECT 
+                d.driver_id,
+                d.last_name as driver_name,
+                d.preferred_race_number as number,
+                COALESCE(champ.championships, 0) as championships,
+                COALESCE(champ.wins, 0) as wins,
+                COALESCE(champ.poles, 0) as poles,
+                COALESCE(champ.podiums, 0) as podiums,
+                COALESCE(records.records, 0) as records
+            FROM drivers d
+            LEFT JOIN (
+                -- Statistiche da championship_standings
+                SELECT 
+                    driver_id,
+                    SUM(CASE WHEN position = 1 THEN 1 ELSE 0 END) as championships,
+                    SUM(wins) as wins,
+                    SUM(poles) as poles,
+                    SUM(podiums) as podiums
+                FROM championship_standings 
+                GROUP BY driver_id
+            ) champ ON d.driver_id = champ.driver_id
+            LEFT JOIN (
+                -- Conteggio record ufficiali detenuti
+                SELECT 
+                    l.driver_id,
+                    COUNT(DISTINCT s.track_name) as records
+                FROM laps l
+                JOIN sessions s ON l.session_id = s.session_id
+                WHERE l.is_valid_for_best = 1 AND l.lap_time > 0
+                AND l.lap_time = (
+                    SELECT MIN(l2.lap_time) 
+                    FROM laps l2 
+                    JOIN sessions s2 ON l2.session_id = s2.session_id 
+                    WHERE s2.track_name = s.track_name 
+                    AND l2.is_valid_for_best = 1 
+                    AND l2.lap_time > 0
+                )
+                GROUP BY l.driver_id
+            ) records ON d.driver_id = records.driver_id
+            WHERE EXISTS (
+                SELECT 1 FROM laps l WHERE l.driver_id = d.driver_id
+            )
+            ORDER BY d.last_name
+        '''
+        
+        return self.safe_sql_query(query)
+    
+    def show_driver_details(self, driver_data: Dict):
+        """Mostra dettagli completi per il pilota selezionato"""
+        
+        # Header pilota
+        driver_name = driver_data['last_name']
+        st.markdown(f"""
+        <div class="championship-header">
+            <h2>👤 {driver_name}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Ottieni statistiche generali del pilota
+        driver_stats = self.get_driver_statistics(driver_data['driver_id'])
+        
+        if not any(driver_stats.values()):
+            st.warning("⚠️ No data available for this driver")
+            return
+        
+        # Prima riga: Info base
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{driver_data['driver_id']}</p>
+                <p class="metric-label">🆔 Driver ID</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            short_name = driver_data.get('short_name', 'N/A')
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value" style="font-size: 1.5rem;">{short_name}</p>
+                <p class="metric-label">📝 Short Name</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            total_sessions = driver_stats.get('total_sessions', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{total_sessions}</p>
+                <p class="metric-label">🎮 Total Sessions</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            official_sessions = driver_stats.get('official_sessions', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{official_sessions}</p>
+                <p class="metric-label">🏆 Official Sessions</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Seconda riga: Performance
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            championships = driver_stats.get('championships', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{championships}</p>
+                <p class="metric-label">🏆 Titles Won</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            wins = driver_stats.get('wins', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{wins}</p>
+                <p class="metric-label">🥇 Wins</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            poles = driver_stats.get('poles', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{poles}</p>
+                <p class="metric-label">🚩 Poles</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            podiums = driver_stats.get('podiums', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{podiums}</p>
+                <p class="metric-label">🏅 Podiums</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Terza riga: Trust, Reports e Tracks
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            num_tracks = driver_stats.get('num_tracks', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{num_tracks}</p>
+                <p class="metric-label">🏁 Tracks Driven</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            trust_level = driver_stats.get('trust_level', 'N/A')
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value" style="font-size: 1.5rem;">{trust_level}</p>
+                <p class="metric-label">🛡️ Trust Level</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            bad_reports = driver_stats.get('bad_reports', 0)
+            st.markdown(f"""
+            <div class="metric-card">
+                <p class="metric-value">{bad_reports}</p>
+                <p class="metric-label">⚠️ Bad Reports</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Elenco migliori tempi per pista
+        st.markdown("---")
+        st.subheader("🏁 Best Times by Track")
+        
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            st.caption("🟢 Official Session • ⚪ Unofficial Session • 🏆 Track Record")
+        
+        self.show_driver_best_times(driver_data['driver_id'])
+    
+    def get_driver_statistics(self, driver_id: int) -> Dict:
+        """Ottiene statistiche complete per un pilota"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Query per statistiche base
+            stats_query = '''
+                SELECT 
+                    COUNT(DISTINCT l.session_id) as total_sessions,
+                    COUNT(DISTINCT CASE WHEN s.competition_id IS NOT NULL THEN l.session_id END) as official_sessions,
+                    COUNT(DISTINCT s.track_name) as num_tracks,
+                    d.trust_level
+                FROM laps l
+                JOIN sessions s ON l.session_id = s.session_id
+                JOIN drivers d ON l.driver_id = d.driver_id
+                WHERE l.driver_id = ?
+            '''
+            
+            cursor.execute(stats_query, [driver_id])
+            row = cursor.fetchone()
+            
+            stats = {
+                'total_sessions': row[0] if row[0] else 0,
+                'official_sessions': row[1] if row[1] else 0,
+                'num_tracks': row[2] if row[2] else 0,
+                'trust_level': row[3] if row[3] is not None else 'N/A'
+            }
+            
+            # Query per risultati gare (wins, poles, podiums, championships) da championship_standings
+            results_query = '''
+                SELECT 
+                    SUM(wins) as wins,
+                    SUM(poles) as poles,
+                    SUM(podiums) as podiums,
+                    SUM(CASE WHEN position = 1 THEN 1 ELSE 0 END) as championships
+                FROM championship_standings
+                WHERE driver_id = ?
+            '''
+            
+            cursor.execute(results_query, [driver_id])
+            row = cursor.fetchone()
+            
+            if row:
+                stats.update({
+                    'wins': row[0] if row[0] else 0,
+                    'poles': row[1] if row[1] else 0,
+                    'podiums': row[2] if row[2] else 0,
+                    'championships': row[3] if row[3] else 0
+                })
+            else:
+                stats.update({'wins': 0, 'poles': 0, 'podiums': 0, 'championships': 0})
+            
+            # Query per bad reports
+            bad_reports_query = '''
+                SELECT bad_driver_reports FROM drivers WHERE driver_id = ?
+            '''
+            cursor.execute(bad_reports_query, [driver_id])
+            bad_row = cursor.fetchone()
+            stats['bad_reports'] = bad_row[0] if bad_row and bad_row[0] else 0
+            
+            conn.close()
+            return stats
+            
+        except Exception as e:
+            st.error(f"❌ Errore nel recupero statistiche pilota: {e}")
+            return {}
+    
+    def show_driver_best_times(self, driver_id: int):
+        """Mostra tutti i migliori tempi del pilota per ogni pista"""
+        
+        best_times_df = self.get_driver_best_times(driver_id)
+        
+        if best_times_df.empty:
+            st.warning("⚠️ No best times data available for this driver")
+            return
+        
+        # Prepara display data
+        display_df = best_times_df.copy()
+        
+        # Formatta tempo con eventuale indicatore record
+        display_df['Best Time'] = display_df.apply(
+            lambda row: f"{self.format_lap_time(row['best_lap'])} 🏆" if pd.notna(row['best_lap']) and row.get('is_record', False) else (self.format_lap_time(row['best_lap']) if pd.notna(row['best_lap']) else "N/A"),
+            axis=1
+        )
+        
+        # Ordina per data del miglior tempo (decrescente)
+        display_df = display_df.sort_values('session_date', ascending=False)
+        
+        # Formatta data
+        display_df['Date'] = display_df['session_date'].apply(
+            lambda x: self.format_session_date(x) if pd.notna(x) else "N/A"
+        )
+        
+        # Formatta tipo sessione con indicatore ufficiale
+        display_df['Session'] = display_df.apply(
+            lambda row: self.format_session_type_with_official_indicator(
+                row['session_type'], row['competition_id']
+            ) if pd.notna(row['session_type']) else "N/A", axis=1
+        )
+        
+        # Nome pista senza indicatore record (ora è nel tempo)
+        display_df['Track'] = display_df['track_name']
+        
+        # Seleziona colonne finali
+        columns_to_show = ['Track', 'Best Time', 'valid_laps', 'Session', 'Date']
+        column_names = {
+            'Track': 'Track',
+            'Best Time': 'Best Time',
+            'valid_laps': 'Valid Laps',
+            'Session': 'Session Type',
+            'Date': 'Date'
+        }
+        
+        final_display = display_df[columns_to_show].copy()
+        final_display.columns = [column_names[col] for col in columns_to_show]
+        
+        st.dataframe(
+            final_display,
+            use_container_width=True,
+            hide_index=True,
+            height=400
+        )
+        
+        # Info aggiuntive
+        total_tracks = len(display_df)
+        records_held = len(display_df[display_df.get('is_record', False) == True])
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.info(f"🏁 **{total_tracks}** tracks driven with recorded times")
+        
+        with col2:
+            st.success(f"🏆 **{records_held}** track records currently held")
+    
+    def get_driver_best_times(self, driver_id: int) -> pd.DataFrame:
+        """Ottiene tutti i migliori tempi del pilota per ogni pista"""
+        
+        query = '''
+            WITH driver_track_bests AS (
+                SELECT 
+                    s.track_name,
+                    MIN(l.lap_time) as best_lap,
+                    COUNT(CASE WHEN l.is_valid_for_best = 1 THEN 1 END) as valid_laps
+                FROM laps l
+                JOIN sessions s ON l.session_id = s.session_id
+                WHERE l.driver_id = ? AND l.is_valid_for_best = 1 AND l.lap_time > 0
+                GROUP BY s.track_name
+            ),
+            track_records AS (
+                SELECT 
+                    s.track_name,
+                    MIN(l.lap_time) as track_record
+                FROM laps l
+                JOIN sessions s ON l.session_id = s.session_id
+                WHERE l.is_valid_for_best = 1 AND l.lap_time > 0
+                GROUP BY s.track_name
+            )
+            SELECT 
+                dtb.track_name,
+                dtb.best_lap,
+                dtb.valid_laps,
+                s.session_date,
+                s.session_type,
+                s.competition_id,
+                CASE WHEN dtb.best_lap = tr.track_record THEN 1 ELSE 0 END as is_record
+            FROM driver_track_bests dtb
+            JOIN laps l ON dtb.best_lap = l.lap_time
+            JOIN sessions s ON l.session_id = s.session_id AND s.track_name = dtb.track_name
+            JOIN track_records tr ON dtb.track_name = tr.track_name
+            WHERE l.driver_id = ? AND l.is_valid_for_best = 1
+            GROUP BY dtb.track_name
+            ORDER BY s.session_date DESC
+        '''
+        
+        return self.safe_sql_query(query, [driver_id, driver_id])
+
     def show_community_banner(self):
         """Mostra banner community con link social"""
         try:
@@ -2792,8 +3277,7 @@ def main():
             dashboard.show_sessions_report()
 
         elif page == "👤 Drivers Report":
-            st.header("👤 Drivers Report")
-            st.info("🚧 Section under development - will be implemented soon")
+            dashboard.show_drivers_report()
         
         elif page == "📊 Advanced Statistics":
             st.header("📊 Advanced Statistics")
