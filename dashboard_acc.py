@@ -569,15 +569,21 @@ class ACCWebDashboard:
             
             with col2:
                 st.subheader("👥 Most Active Drivers")
+                st.caption("🗓️ Activity in current and previous week")
                 
-                # Query per piloti più attivi
+                # Query per piloti più attivi nelle ultime 2 settimane
                 query_active = """
                 SELECT 
                     d.last_name as driver,
-                    d.total_sessions as sessions
+                    COUNT(DISTINCT l.session_id) as sessions
                 FROM drivers d
-                WHERE d.total_sessions > 0
-                ORDER BY d.total_sessions DESC
+                JOIN laps l ON d.driver_id = l.driver_id
+                JOIN sessions s ON l.session_id = s.session_id
+                WHERE s.session_date >= date('now', '-14 days')
+                  AND s.session_date <= date('now')
+                GROUP BY d.driver_id, d.last_name
+                HAVING sessions > 0
+                ORDER BY sessions DESC
                 LIMIT 10
                 """
                 
@@ -592,14 +598,16 @@ class ACCWebDashboard:
                         x='sessions', 
                         y='driver',
                         orientation='h',
-                        title="Top 10 Drivers by Activity",
+                        title="Weekly Activity - Top 10 Drivers",
                         color='sessions',
                         color_continuous_scale='greens'
                     )
                     fig_active.update_layout(height=400, showlegend=False)
+                    fig_active.update_xaxes(title="Sessions in Last 2 Weeks")
+                    fig_active.update_yaxes(title="Driver")
                     st.plotly_chart(fig_active, use_container_width=True)
                 else:
-                    st.info("No data available for activity chart")
+                    st.info("No recent activity data available for the last 2 weeks")
             
             conn.close()
             
