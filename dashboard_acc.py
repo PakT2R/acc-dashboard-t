@@ -327,10 +327,7 @@ class ACCWebDashboard:
                 'completed_competitions': '''SELECT COUNT(*) FROM competitions 
                                            WHERE is_completed = 1 AND championship_id is not null''',
                 'total_official_sessions': '''SELECT COUNT(*) FROM sessions s 
-                                           WHERE s.competition_id IS NOT NULL AND EXISTS
-                                           (SELECT 1 FROM competitions c 
-                                            WHERE c.competition_id = s.competition_id 
-                                            AND c.championship_id IS NOT NULL)''',
+                                           WHERE s.competition_id IS NOT NULL''',
                 'championship_sessions': '''SELECT COUNT(*) FROM sessions s 
                                           WHERE s.competition_id IS NOT NULL AND EXISTS
                                           (SELECT 1 FROM competitions c 
