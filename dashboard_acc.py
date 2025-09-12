@@ -768,6 +768,39 @@ class ACCWebDashboard:
             st.error(f"❌ Errore nel recupero competizioni: {e}")
             return []
     
+    def get_championship_competitions_calendar(self, championship_id: int) -> List[Tuple]:
+        """Ottiene lista competizioni del campionato ordinata cronologicamente per il calendario"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    competition_id,
+                    name,
+                    track_name,
+                    round_number,
+                    date_start,
+                    date_end,
+                    weekend_format,
+                    is_completed
+                FROM competitions
+                WHERE championship_id = ?
+                ORDER BY 
+                    CASE WHEN date_start IS NULL THEN 1 ELSE 0 END,
+                    date_start ASC,
+                    round_number ASC
+            """, (championship_id,))
+            
+            competitions = cursor.fetchall()
+            conn.close()
+            
+            return competitions
+            
+        except Exception as e:
+            st.error(f"❌ Error loading calendar: {e}")
+            return []
+    
     def get_competition_results(self, competition_id: int) -> pd.DataFrame:
         """Ottiene risultati competizione - AGGIORNATO per nuova struttura"""
         query = """
@@ -1215,7 +1248,7 @@ class ACCWebDashboard:
                 
                 # Calendario gare
                 st.subheader("📅 Race Calendar")
-                competitions = self.get_championship_competitions(championship_id)
+                competitions = self.get_championship_competitions_calendar(championship_id)
                 
                 if competitions:
                     # Prepara i dati per il calendario
