@@ -322,17 +322,12 @@ class ACCWebDashboard:
             # Query sicure con gestione errori
             safe_queries = {
                 'total_drivers': 'SELECT COUNT(*) FROM drivers',
-                'total_sessions': 'SELECT COUNT(*) FROM sessions',
+                'total_competitions': 'SELECT COUNT(*) FROM competitions WHERE is_completed = 1',
                 'total_championships': 'SELECT COUNT(*) FROM championships WHERE is_completed = 1',
                 'completed_competitions': '''SELECT COUNT(*) FROM competitions 
                                            WHERE is_completed = 1 AND championship_id is not null''',
-                'total_official_sessions': '''SELECT COUNT(*) FROM sessions s 
-                                           WHERE s.competition_id IS NOT NULL''',
-                'championship_sessions': '''SELECT COUNT(*) FROM sessions s 
-                                          WHERE s.competition_id IS NOT NULL AND EXISTS
-                                          (SELECT 1 FROM competitions c 
-                                           WHERE c.competition_id = s.competition_id 
-                                           AND c.championship_id IS NOT NULL)''',
+                'fun_competitions': '''SELECT COUNT(*) FROM competitions 
+                                     WHERE championship_id IS NULL''',
             }
             
             for key, query in safe_queries.items():
@@ -344,16 +339,52 @@ class ACCWebDashboard:
                     st.warning(f"⚠️ Error in query {key}: {e}")
                     stats[key] = 0
             
-            # Ultima sessione
+            # Ultima gara di campionato
             try:
-                cursor.execute('''SELECT MAX(session_date) FROM sessions s 
-                                WHERE s.competition_id IS NOT NULL AND EXISTS
-                                (SELECT 1 FROM competitions c 
-                                 WHERE c.competition_id = s.competition_id 
-                                 AND c.championship_id IS NOT NULL)''')
-                stats['last_session'] = cursor.fetchone()[0]
+                cursor.execute('''SELECT MAX(date_start) FROM competitions 
+                                WHERE championship_id IS NOT NULL''')
+                stats['last_championship_race'] = cursor.fetchone()[0]
             except Exception:
-                stats['last_session'] = None
+                stats['last_championship_race'] = None
+            
+            # Detentore del titolo - pilota vincitore dell'ultimo campionato completato
+            try:
+                cursor.execute('''
+                    SELECT d.last_name 
+                    FROM championship_standings cs
+                    JOIN drivers d ON cs.driver_id = d.driver_id
+                    JOIN championships ch ON cs.championship_id = ch.championship_id
+                    WHERE cs.position = 1 AND ch.is_completed = 1
+                    ORDER BY ch.end_date DESC
+                    LIMIT 1
+                ''')
+                result = cursor.fetchone()
+                stats['title_holder'] = result[0] if result else None
+            except Exception:
+                stats['title_holder'] = None
+            
+            # Prossima competizione prevista
+            try:
+                cursor.execute('''
+                    SELECT c.name, c.date_start, c.track_name, ch.name as championship_name
+                    FROM competitions c
+                    LEFT JOIN championships ch ON c.championship_id = ch.championship_id
+                    WHERE c.is_completed = 0 AND c.date_start IS NOT NULL
+                    ORDER BY c.date_start ASC
+                    LIMIT 1
+                ''')
+                result = cursor.fetchone()
+                if result:
+                    stats['next_competition'] = {
+                        'name': result[0],
+                        'date': result[1],
+                        'track': result[2],
+                        'championship': result[3]
+                    }
+                else:
+                    stats['next_competition'] = None
+            except Exception:
+                stats['next_competition'] = None
             
             conn.close()
             return stats
@@ -363,12 +394,13 @@ class ACCWebDashboard:
             # Ritorna statistiche vuote invece di crashare
             return {
                 'total_drivers': 0,
-                'total_sessions': 0,
+                'total_competitions': 0,
                 'total_championships': 0,
                 'completed_competitions': 0,
-                'total_official_sessions': 0,
-                'championship_sessions': 0,
-                'last_session': None
+                'fun_competitions': 0,
+                'last_championship_race': None,
+                'title_holder': None,
+                'next_competition': None
             }
     
     def format_lap_time(self, lap_time_ms: Optional[int]) -> str:
@@ -431,16 +463,16 @@ class ACCWebDashboard:
         with col2:
             st.markdown(f"""
             <div class="metric-card">
-                <p class="metric-value">{stats['total_sessions']}</p>
-                <p class="metric-label">🎮 Total Sessions</p>
+                <p class="metric-value">{stats['total_competitions']}</p>
+                <p class="metric-label">🎮 Total Competitions</p>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown(f"""
             <div class="metric-card">
-                <p class="metric-value">{stats['total_official_sessions']:,}</p>
-                <p class="metric-label">🏆 Total Official Sessions</p>
+                <p class="metric-value">{stats['fun_competitions']:,}</p>
+                <p class="metric-label">🎉 4Fun Competitions</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -490,29 +522,62 @@ class ACCWebDashboard:
             """, unsafe_allow_html=True)
         
         with col3:
-            championship_sessions = stats.get('championship_sessions', 0)
+            title_holder = stats.get('title_holder', 'N/A')
             st.markdown(f"""
             <div class="metric-card">
-                <p class="metric-value">{championship_sessions}</p>
-                <p class="metric-label">🎯 Championship Sessions</p>
+                <p class="metric-value" style="font-size: 1.4rem;">{title_holder}</p>
+                <p class="metric-label">🏆 Title Holder</p>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
-            # Ultima sessione di campionato
-            if stats['last_session']:
+            # Ultima gara di campionato
+            if stats['last_championship_race']:
                 try:
-                    last_date = datetime.fromisoformat(stats['last_session'].replace('Z', '+00:00'))
-                    last_championship_formatted = last_date.strftime('%d/%m/%Y')
+                    last_date = datetime.fromisoformat(stats['last_championship_race'].replace('Z', '+00:00'))
+                    last_race_formatted = last_date.strftime('%d/%m/%Y')
                 except:
-                    last_championship_formatted = "N/A"
+                    last_race_formatted = "N/A"
             else:
-                last_championship_formatted = "N/A"
+                last_race_formatted = "N/A"
             
             st.markdown(f"""
             <div class="metric-card">
-                <p class="metric-value" style="font-size: 1.4rem;">{last_championship_formatted}</p>
-                <p class="metric-label">📅 Last Championship Session Date</p>
+                <p class="metric-value" style="font-size: 1.4rem;">{last_race_formatted}</p>
+                <p class="metric-label">📅 Last Championship Race</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Prossima competizione prevista
+        next_comp = stats.get('next_competition')
+        if next_comp:
+            try:
+                comp_date = pd.to_datetime(next_comp['date']).strftime('%d/%m/%Y')
+            except:
+                comp_date = next_comp['date'][:10] if next_comp['date'] and len(next_comp['date']) >= 10 else "TBD"
+            
+            # Determina il tipo di competizione
+            if next_comp['championship']:
+                comp_type = f"📍 {next_comp['championship']}"
+            else:
+                comp_type = "🎉 4Fun Race"
+            
+            track_info = f" - {next_comp['track']}" if next_comp['track'] else ""
+            
+            st.markdown(f"""
+            <div style="background: linear-gradient(90deg, #1f4e79, #2d5a87); 
+                        color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center;">
+                <h4 style="margin: 0; color: white;">🏁 Next Race</h4>
+                <p style="margin: 5px 0; font-size: 1.1em;"><strong>{next_comp['name']}</strong>{track_info}</p>
+                <p style="margin: 5px 0;">{comp_type} • 📅 {comp_date}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="background: linear-gradient(90deg, #6c757d, #495057); 
+                        color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center;">
+                <h4 style="margin: 0; color: white;">🏁 Next Race</h4>
+                <p style="margin: 5px 0;">No upcoming races scheduled</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1147,6 +1212,50 @@ class ACCWebDashboard:
                 header_html += "</div>"
                 
                 st.markdown(header_html, unsafe_allow_html=True)
+                
+                # Calendario gare
+                st.subheader("📅 Race Calendar")
+                competitions = self.get_championship_competitions(championship_id)
+                
+                if competitions:
+                    # Prepara i dati per il calendario
+                    calendar_data = []
+                    for comp in competitions:
+                        competition_id, name, track, round_number, date_start, date_end, weekend_format, is_completed = comp
+                        
+                        # Formatta la data evento
+                        event_date = "TBD"
+                        if date_start:
+                            try:
+                                event_date = pd.to_datetime(date_start).strftime("%d/%m/%Y")
+                            except:
+                                event_date = date_start[:10] if len(date_start) >= 10 else date_start
+                        
+                        # Stato della gara
+                        status = "✅ Completed" if is_completed else "🔄 Scheduled"
+                        
+                        calendar_data.append({
+                            "Event Date": event_date,
+                            "Round": f"R{round_number}" if round_number else "N/A",
+                            "Competition Name": name,
+                            "Track": track if track else "TBD",
+                            "Status": status
+                        })
+                    
+                    # Crea DataFrame per il calendario
+                    calendar_df = pd.DataFrame(calendar_data)
+                    
+                    # Mostra tabella calendario
+                    st.dataframe(
+                        calendar_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        height=300
+                    )
+                else:
+                    st.info("📅 No races scheduled for this championship")
+                
+                st.divider()
                 
                 # Classifica campionato
                 st.subheader("📊 Championship Leaderboard")
