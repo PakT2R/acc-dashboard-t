@@ -342,7 +342,7 @@ class ACCWebDashboard:
             # Ultima gara di campionato
             try:
                 cursor.execute('''SELECT MAX(date_start) FROM competitions 
-                                WHERE championship_id IS NOT NULL''')
+                                WHERE championship_id IS NOT NULL AND is_completed = 1''')
                 stats['last_championship_race'] = cursor.fetchone()[0]
             except Exception:
                 stats['last_championship_race'] = None
@@ -558,26 +558,27 @@ class ACCWebDashboard:
             
             # Determina il tipo di competizione
             if next_comp['championship']:
-                comp_type = f"📍 {next_comp['championship']}"
+                comp_type = f"({next_comp['championship']})"
             else:
-                comp_type = "🎉 4Fun Race"
-            
-            track_info = f" - {next_comp['track']}" if next_comp['track'] else ""
+                comp_type = "(4Fun Race)"
             
             st.markdown(f"""
-            <div style="background: linear-gradient(90deg, #1f4e79, #2d5a87); 
-                        color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center;">
-                <h4 style="margin: 0; color: white;">🏁 Next Race</h4>
-                <p style="margin: 5px 0; font-size: 1.1em;"><strong>{next_comp['name']}</strong>{track_info}</p>
-                <p style="margin: 5px 0;">{comp_type} • 📅 {comp_date}</p>
+            <div style="background: linear-gradient(135deg, #FF6B35, #F7931E); 
+                        color: white; padding: 20px; border-radius: 15px; margin: 25px 0; text-align: center;
+                        box-shadow: 0 8px 32px rgba(255, 107, 53, 0.3);">
+                <h3 style="margin: 0 0 10px 0; color: white; font-size: 1.8em;">🏁 NEXT RACE</h3>
+                <p style="margin: 0; font-size: 1.4em; font-weight: bold;">
+                    {next_comp['name']} • {comp_date} {comp_type}
+                </p>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div style="background: linear-gradient(90deg, #6c757d, #495057); 
-                        color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center;">
-                <h4 style="margin: 0; color: white;">🏁 Next Race</h4>
-                <p style="margin: 5px 0;">No upcoming races scheduled</p>
+            <div style="background: linear-gradient(135deg, #6c757d, #495057); 
+                        color: white; padding: 20px; border-radius: 15px; margin: 25px 0; text-align: center;
+                        box-shadow: 0 8px 32px rgba(108, 117, 125, 0.3);">
+                <h3 style="margin: 0 0 10px 0; color: white; font-size: 1.8em;">🏁 NEXT RACE</h3>
+                <p style="margin: 0; font-size: 1.2em;">No upcoming races scheduled</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -641,8 +642,8 @@ class ACCWebDashboard:
                 FROM drivers d
                 JOIN laps l ON d.driver_id = l.driver_id
                 JOIN sessions s ON l.session_id = s.session_id
-                WHERE s.session_date >= date('now', '-14 days')
-                  AND s.session_date <= date('now')
+                WHERE date(s.session_date) >= date('now', '-14 days')
+                  AND date(s.session_date) <= date('now')
                 GROUP BY d.driver_id, d.last_name
                 HAVING sessions > 0
                 ORDER BY sessions DESC
@@ -3334,7 +3335,7 @@ class ACCWebDashboard:
                     social_buttons = []
                     
                     if simgrid_url:
-                        social_buttons.append(f'<a href="{simgrid_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #ff6b35, #ff8c42); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">🏆 SimGrid Community</button></a>')
+                        social_buttons.append(f'<a href="{simgrid_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">🏆 SimGrid Community</button></a>')
                     
                     if discord_url:
                         social_buttons.append(f'<a href="{discord_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">💬 Join Discord</button></a>')
@@ -3364,7 +3365,7 @@ class ACCWebDashboard:
                     social_buttons = []
                     
                     if simgrid_url:
-                        social_buttons.append(f'<a href="{simgrid_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #ff6b35, #ff8c42); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">🏆 SimGrid Community</button></a>')
+                        social_buttons.append(f'<a href="{simgrid_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">🏆 SimGrid Community</button></a>')
                     
                     if discord_url:
                         social_buttons.append(f'<a href="{discord_url}" target="_blank" style="text-decoration: none; margin: 0 1rem;"><button style="background: linear-gradient(90deg, #5865f2, #7289da); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">💬 Join Discord</button></a>')
