@@ -584,41 +584,41 @@ class ACCWebDashboard:
         
         # Grafici statistiche
         st.markdown("---")
-        self.show_homepage_charts()
+        self.show_homepage_charts(stats)
     
-    def show_homepage_charts(self):
+    def show_homepage_charts(self, stats):
         """Mostra grafici nella homepage con gestione errori migliorata"""
         try:
             conn = sqlite3.connect(self.db_path)
-            
+
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.subheader("📊 Sessions per Week")
-                
+
                 # Query per sessioni per settimana
                 query_sessions = """
-                SELECT 
+                SELECT
                     date(session_date, 'weekday 0', '-6 days') as week_start,
                     COUNT(*) as sessions
-                FROM sessions 
+                FROM sessions
                 WHERE session_date IS NOT NULL
                 GROUP BY date(session_date, 'weekday 0', '-6 days')
                 ORDER BY week_start DESC
                 LIMIT 12
                 """
-                
+
                 df_sessions = self.safe_sql_query(query_sessions)
-                
+
                 if not df_sessions.empty:
                     # Inverte l'ordine per mostrare cronologicamente (più vecchia -> più recente)
                     df_sessions = df_sessions.sort_values('week_start', ascending=True)
                     # Formatta le date per una migliore leggibilità
                     df_sessions['week_label'] = pd.to_datetime(df_sessions['week_start']).dt.strftime('%d/%m')
-                    
+
                     fig_sessions = px.bar(
-                        df_sessions, 
-                        x='week_label', 
+                        df_sessions,
+                        x='week_label',
                         y='sessions',
                         title="Sessions per Week (Last 12)",
                         color='sessions',
@@ -629,51 +629,129 @@ class ACCWebDashboard:
                     st.plotly_chart(fig_sessions, use_container_width=True)
                 else:
                     st.info("No data available for sessions chart")
-            
+
             with col2:
+                # Ottieni informazioni per il filtro
+                next_comp = stats.get('next_competition')
+                last_championship_race = stats.get('last_championship_race')
+
+                # Determina la pista e la data di inizio
+                if next_comp and next_comp.get('track'):
+                    track_name = next_comp['track']
+                    chart_title = f"{track_name} Training Sessions"
+                    caption_text = f"🏁 Activity on {track_name}"
+                else:
+                    track_name = None
+                    chart_title = "Most Active Drivers"
+                    caption_text = "🗓️ General activity"
+
+                # Determina la data di inizio - usa ultima sessione ufficiale
+                try:
+                    query_last_official = "SELECT MAX(session_date) FROM sessions WHERE competition_id IS NOT NULL"
+                    df_last_official = self.safe_sql_query(query_last_official)
+                    if not df_last_official.empty and df_last_official.iloc[0, 0]:
+                        start_date = df_last_official.iloc[0, 0]
+                        try:
+                            # Formatta la data per visualizzazione nella caption
+                            start_date_obj = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                            start_date_formatted = start_date_obj.strftime('%d/%m/%Y')
+                            caption_text += f" since {start_date_formatted}"
+                        except:
+                            pass
+                    else:
+                        start_date = None
+                except:
+                    start_date = None
+
                 st.subheader("👥 Most Active Drivers")
-                st.caption("🗓️ Activity in current and previous week")
-                
-                # Query per piloti più attivi nelle ultime 2 settimane
-                query_active = """
-                SELECT 
-                    d.last_name as driver,
-                    COUNT(DISTINCT l.session_id) as sessions
-                FROM drivers d
-                JOIN laps l ON d.driver_id = l.driver_id
-                JOIN sessions s ON l.session_id = s.session_id
-                WHERE date(s.session_date) >= date('now', '-14 days')
-                  AND date(s.session_date) <= date('now')
-                GROUP BY d.driver_id, d.last_name
-                HAVING sessions > 0
-                ORDER BY sessions DESC
-                LIMIT 10
-                """
-                
-                df_active = self.safe_sql_query(query_active)
-                
+                st.caption(caption_text)
+
+                # Query per piloti più attivi sulla pista specifica
+                if track_name and start_date:
+                    query_active = """
+                    SELECT
+                        d.last_name as driver,
+                        COUNT(DISTINCT l.session_id) as sessions
+                    FROM drivers d
+                    JOIN laps l ON d.driver_id = l.driver_id
+                    JOIN sessions s ON l.session_id = s.session_id
+                    WHERE s.track_name = ?
+                      AND date(s.session_date) >= date(?)
+                      AND date(s.session_date) <= date('now')
+                    GROUP BY d.driver_id, d.last_name
+                    HAVING sessions > 0
+                    ORDER BY sessions DESC
+                    LIMIT 10
+                    """
+                    df_active = self.safe_sql_query(query_active, (track_name, start_date))
+                elif track_name:
+                    # Solo filtro per pista, senza data
+                    query_active = """
+                    SELECT
+                        d.last_name as driver,
+                        COUNT(DISTINCT l.session_id) as sessions
+                    FROM drivers d
+                    JOIN laps l ON d.driver_id = l.driver_id
+                    JOIN sessions s ON l.session_id = s.session_id
+                    WHERE s.track_name = ?
+                      AND date(s.session_date) >= date('now', '-30 days')
+                      AND date(s.session_date) <= date('now')
+                    GROUP BY d.driver_id, d.last_name
+                    HAVING sessions > 0
+                    ORDER BY sessions DESC
+                    LIMIT 10
+                    """
+                    df_active = self.safe_sql_query(query_active, (track_name,))
+                else:
+                    # Fallback alla query originale se non ci sono informazioni
+                    query_active = """
+                    SELECT
+                        d.last_name as driver,
+                        COUNT(DISTINCT l.session_id) as sessions
+                    FROM drivers d
+                    JOIN laps l ON d.driver_id = l.driver_id
+                    JOIN sessions s ON l.session_id = s.session_id
+                    WHERE date(s.session_date) >= date('now', '-14 days')
+                      AND date(s.session_date) <= date('now')
+                    GROUP BY d.driver_id, d.last_name
+                    HAVING sessions > 0
+                    ORDER BY sessions DESC
+                    LIMIT 10
+                    """
+                    df_active = self.safe_sql_query(query_active)
+
                 if not df_active.empty:
                     # Ordina per visualizzazione orizzontale
                     df_active = df_active.sort_values('sessions', ascending=True)
-                    
+
                     fig_active = px.bar(
-                        df_active, 
-                        x='sessions', 
+                        df_active,
+                        x='sessions',
                         y='driver',
                         orientation='h',
-                        title="Weekly Activity - Top 10 Drivers",
+                        title=chart_title,
                         color='sessions',
                         color_continuous_scale='greens'
                     )
                     fig_active.update_layout(height=400, showlegend=False)
-                    fig_active.update_xaxes(title="Sessions in Last 2 Weeks")
+
+                    # Aggiorna il titolo dell'asse X
+                    if track_name:
+                        x_title = f"Training Sessions on {track_name}"
+                    else:
+                        x_title = "Sessions"
+
+                    fig_active.update_xaxes(title=x_title)
                     fig_active.update_yaxes(title="Driver")
                     st.plotly_chart(fig_active, use_container_width=True)
                 else:
-                    st.info("No recent activity data available for the last 2 weeks")
-            
+                    if track_name:
+                        st.info(f"No training activity found on {track_name}")
+                    else:
+                        st.info("No recent activity data available")
+
             conn.close()
-            
+
         except Exception as e:
             st.error(f"❌ Errore nel caricamento grafici: {e}")
     
