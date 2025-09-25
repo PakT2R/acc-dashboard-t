@@ -594,37 +594,38 @@ class ACCWebDashboard:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.subheader("📊 Sessions per Week")
+                st.subheader("📊 Sessions per Day")
 
-                # Query per sessioni per settimana
+                # Query per sessioni per giorno (ultimi 15 giorni)
                 query_sessions = """
                 SELECT
-                    date(session_date, 'weekday 0', '-6 days') as week_start,
+                    date(session_date) as day,
                     COUNT(*) as sessions
                 FROM sessions
                 WHERE session_date IS NOT NULL
-                GROUP BY date(session_date, 'weekday 0', '-6 days')
-                ORDER BY week_start DESC
-                LIMIT 12
+                  AND date(session_date) >= date('now', '-15 days')
+                GROUP BY date(session_date)
+                ORDER BY day DESC
+                LIMIT 15
                 """
 
                 df_sessions = self.safe_sql_query(query_sessions)
 
                 if not df_sessions.empty:
-                    # Inverte l'ordine per mostrare cronologicamente (più vecchia -> più recente)
-                    df_sessions = df_sessions.sort_values('week_start', ascending=True)
-                    # Formatta le date per una migliore leggibilità
-                    df_sessions['week_label'] = pd.to_datetime(df_sessions['week_start']).dt.strftime('%d/%m')
+                    # Inverte l'ordine per mostrare cronologicamente (più vecchio -> più recente)
+                    df_sessions = df_sessions.sort_values('day', ascending=True)
+                    # Formatta le date per una migliore leggibilità (giorno/mese)
+                    df_sessions['day_label'] = pd.to_datetime(df_sessions['day']).dt.strftime('%d/%m')
 
                     fig_sessions = px.bar(
                         df_sessions,
-                        x='week_label',
+                        x='day_label',
                         y='sessions',
-                        title="Sessions per Week (Last 12)",
+                        title="Sessions per Day (Last 15)",
                         color='sessions',
                         color_continuous_scale='blues'
                     )
-                    fig_sessions.update_xaxes(title="Week (Monday)")
+                    fig_sessions.update_xaxes(title="Day")
                     fig_sessions.update_layout(height=400, showlegend=False)
                     st.plotly_chart(fig_sessions, use_container_width=True)
                 else:
@@ -676,7 +677,7 @@ class ACCWebDashboard:
                     JOIN laps l ON d.driver_id = l.driver_id
                     JOIN sessions s ON l.session_id = s.session_id
                     WHERE s.track_name = ?
-                      AND date(s.session_date) >= date(?)
+                      AND date(s.session_date) > date(?)
                       AND date(s.session_date) <= date('now')
                     GROUP BY d.driver_id, d.last_name
                     HAVING sessions > 0
