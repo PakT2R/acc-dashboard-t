@@ -1757,16 +1757,16 @@ class ACCWebDashboard:
             lambda x: self.format_session_datetime(x) if pd.notna(x) else "N/A"
         )
         
-        # Winner info formattata
-        display_df['Winner'] = display_df['winner_name'].fillna("N/A")
-        
-        # Winner time formattata
-        display_df['Winner Time'] = display_df['winner_time'].apply(
+        # Fastest driver info formattata
+        display_df['Fastest'] = display_df['fastest_name'].fillna("N/A")
+
+        # Best time formattata
+        display_df['Best Time'] = display_df['fastest_time'].apply(
             lambda x: self.format_lap_time(x) if pd.notna(x) else "N/A"
         )
         
         # Seleziona colonne finali per display
-        columns_to_show = ['Session', 'Type', 'Status', 'track_name', 'Date & Time', 'total_drivers', 'Winner', 'Winner Time']
+        columns_to_show = ['Session', 'Type', 'Status', 'track_name', 'Date & Time', 'total_drivers', 'Fastest', 'Best Time']
         column_names = {
             'Session': 'Session',
             'Type': 'Type',
@@ -1774,8 +1774,8 @@ class ACCWebDashboard:
             'track_name': 'Track',
             'Date & Time': 'Date & Time',
             'total_drivers': 'Drivers',
-            'Winner': 'Winner',
-            'Winner Time': 'Winner Time'
+            'Fastest': 'Fastest',
+            'Best Time': 'Best Time'
         }
         
         final_display = display_df[columns_to_show].copy()
@@ -1985,24 +1985,27 @@ class ACCWebDashboard:
                 s.session_date,
                 s.total_drivers,
                 s.competition_id,
-                -- Winner info (posizione 1)
-                winner.driver_name as winner_name,
-                winner.total_time as winner_time,
-                winner.best_lap as winner_best_lap,
+                -- Fastest driver info (migliore giro)
+                fastest.driver_name as fastest_name,
+                fastest.best_lap as fastest_time,
                 -- Competition info se disponibile
                 c.name as competition_name,
                 c.round_number
             FROM sessions s
             LEFT JOIN (
-                SELECT 
+                SELECT
                     sr.session_id,
                     d.last_name as driver_name,
-                    sr.total_time,
                     sr.best_lap
                 FROM session_results sr
                 JOIN drivers d ON sr.driver_id = d.driver_id
-                WHERE sr.position = 1
-            ) winner ON s.session_id = winner.session_id
+                WHERE sr.best_lap = (
+                    SELECT MIN(sr2.best_lap)
+                    FROM session_results sr2
+                    WHERE sr2.session_id = sr.session_id
+                    AND sr2.best_lap > 0
+                )
+            ) fastest ON s.session_id = fastest.session_id
             LEFT JOIN competitions c ON s.competition_id = c.competition_id
             WHERE DATE(s.session_date) >= ? AND DATE(s.session_date) < ?
             ORDER BY s.session_date DESC
