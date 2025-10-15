@@ -2279,14 +2279,14 @@ class ACCWebDashboard:
     def show_best_laps_report(self):
         """Mostra il report Best Laps per pista"""
         st.header("🏁 Report Best Laps")
-        
+
         # Ottieni lista piste
         tracks = self.get_tracks_list()
-        
+
         if not tracks:
             st.warning("❌ No tracks found in database")
             return
-        
+
         # Selectbox pista con riepilogo generale come prima opzione
         track_options = ["📊 General Summary"] + tracks
         selected_track = st.selectbox(
@@ -2295,7 +2295,19 @@ class ACCWebDashboard:
             index=0,  # Riepilogo generale selezionato di default
             key="track_select"
         )
-        
+
+        # Filtro per sessioni ufficiali/tutte
+        session_filter = st.radio(
+            "🎯 Session Filter:",
+            options=["🟢 Official Sessions Only", "📊 All Sessions"],
+            index=0,  # "Official Sessions Only" selezionato di default
+            horizontal=True,
+            key="session_filter_bestlap"
+        )
+
+        # Determina se filtrare solo sessioni ufficiali
+        only_official = (session_filter == "🟢 Official Sessions Only")
+
         if selected_track == "📊 General Summary":
             # Mostra riepilogo generale di tutte le piste
             st.markdown("---")
@@ -2304,12 +2316,12 @@ class ACCWebDashboard:
                 st.subheader("🏁 Track Records Summary")
             with col2:
                 st.caption("🟢 Official Session • ⚪ Unofficial Session")
-            self.show_all_tracks_summary()
-            
+            self.show_all_tracks_summary(only_official=only_official)
+
         elif selected_track in tracks:
             # Mostra dettagli della pista specifica
             st.markdown("---")
-            self.show_track_details(selected_track)
+            self.show_track_details(selected_track, only_official=only_official)
     
     def get_tracks_list(self) -> List[str]:
         """Ottiene lista piste disponibili nel database"""
@@ -2327,10 +2339,10 @@ class ACCWebDashboard:
             st.error(f"❌ Errore nel recupero piste: {e}")
             return []
     
-    def show_all_tracks_summary(self):
+    def show_all_tracks_summary(self, only_official: bool = False):
         """Mostra riepilogo record per tutte le piste"""
-        
-        summary_df = self.get_all_tracks_summary()
+
+        summary_df = self.get_all_tracks_summary(only_official=only_official)
         
         if summary_df.empty:
             st.warning("⚠️ No data available for tracks summary")
@@ -2419,20 +2431,24 @@ class ACCWebDashboard:
         with col3:
             st.info(f"🎯 **{record_text}**")
     
-    def get_all_tracks_summary(self) -> pd.DataFrame:
+    def get_all_tracks_summary(self, only_official: bool = False) -> pd.DataFrame:
         """Ottiene riepilogo record per tutte le piste"""
-        
-        query = '''
+
+        # Condizione aggiuntiva per filtrare solo sessioni ufficiali
+        official_filter = "AND s.competition_id IS NOT NULL" if only_official else ""
+
+        query = f'''
             WITH track_records AS (
-                SELECT 
+                SELECT
                     s.track_name,
                     MIN(l.lap_time) as best_lap
                 FROM laps l
                 JOIN sessions s ON l.session_id = s.session_id
                 WHERE l.is_valid_for_best = 1 AND l.lap_time > 0
+                {official_filter}
                 GROUP BY s.track_name
             )
-            SELECT 
+            SELECT
                 tr.track_name,
                 tr.best_lap,
                 d.last_name as driver_name,
@@ -2444,10 +2460,11 @@ class ACCWebDashboard:
             JOIN sessions s ON l.session_id = s.session_id AND s.track_name = tr.track_name
             JOIN drivers d ON l.driver_id = d.driver_id
             WHERE l.is_valid_for_best = 1
+            {official_filter}
             GROUP BY tr.track_name
             ORDER BY tr.best_lap ASC
         '''
-        
+
         return self.safe_sql_query(query)
     
     def format_session_type(self, session_type: str) -> str:
@@ -2476,18 +2493,18 @@ class ACCWebDashboard:
             return f"⚪ {formatted_type}"
 
 
-    def show_track_details(self, track_name: str):
+    def show_track_details(self, track_name: str, only_official: bool = False):
         """Mostra dettagli completi per la pista selezionata"""
-        
+
         # Header pista
         st.markdown(f"""
         <div class="championship-header">
             <h2>🏁 {track_name}</h2>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Ottieni statistiche generali
-        track_stats = self.get_track_statistics(track_name)
+        track_stats = self.get_track_statistics(track_name, only_official=only_official)
         
         if not any(track_stats.values()):
             st.warning("⚠️ No data available for this track")
@@ -2596,8 +2613,8 @@ class ACCWebDashboard:
             st.subheader("🏆 Best Laps Leaderboard by Driver")
         with col2:
             st.caption("🟢 Official Session • ⚪ Unofficial Session")
-        
-        leaderboard_df = self.get_track_leaderboard(track_name)
+
+        leaderboard_df = self.get_track_leaderboard(track_name, only_official=only_official)
         
         if not leaderboard_df.empty:
             # Prepara display leaderboard
@@ -2665,17 +2682,18 @@ class ACCWebDashboard:
         st.markdown("---")
         self.show_track_charts(track_name, leaderboard_df)    
 
-    def get_track_statistics(self, track_name: str) -> Dict:
+    def get_track_statistics(self, track_name: str, only_official: bool = False) -> Dict:
         """Ottiene statistiche generali per la pista"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
-            # Query per tutte le sessioni
-                
+
+            # Condizione aggiuntiva per filtrare solo sessioni ufficiali
+            official_filter = "AND s.competition_id IS NOT NULL" if only_official else ""
+
             # Statistiche generali
-            query = '''
-                SELECT 
+            query = f'''
+                SELECT
                     COUNT(DISTINCT s.session_id) as total_sessions,
                     COUNT(DISTINCT l.driver_id) as unique_drivers,
                     COUNT(l.id) as total_laps,
@@ -2686,24 +2704,26 @@ class ACCWebDashboard:
                 FROM sessions s
                 LEFT JOIN laps l ON s.session_id = l.session_id
                 WHERE s.track_name = ? AND l.is_valid_for_best = 1 AND l.lap_time > 0
+                {official_filter}
             '''
-            
+
             cursor.execute(query, (track_name,))
             result = cursor.fetchone()
-            
+
             if result:
                 sessions, drivers, laps, best, avg, last_session, official_sessions = result
-                
+
                 # Chi detiene il record e quando
-                record_query = '''
+                record_query = f'''
                     SELECT d.last_name, s.session_date
                     FROM laps l
                     JOIN drivers d ON l.driver_id = d.driver_id
                     JOIN sessions s ON l.session_id = s.session_id
                     WHERE s.track_name = ? AND l.lap_time = ? AND l.is_valid_for_best = 1
+                    {official_filter}
                     LIMIT 1
                 '''
-                
+
                 cursor.execute(record_query, (track_name, best))
                 record_result = cursor.fetchone()
                 if record_result:
@@ -2744,22 +2764,24 @@ class ACCWebDashboard:
             st.error(f"❌ Errore nel recupero statistiche pista: {e}")
             return {}
     
-    def get_track_leaderboard(self, track_name: str) -> pd.DataFrame:
+    def get_track_leaderboard(self, track_name: str, only_official: bool = False) -> pd.DataFrame:
         """Ottiene classifica best laps per pista"""
-        
-        # Query per tutte le sessioni
-        
-        query = '''
+
+        # Condizione aggiuntiva per filtrare solo sessioni ufficiali
+        official_filter = "AND s.competition_id IS NOT NULL" if only_official else ""
+
+        query = f'''
             WITH driver_best_laps AS (
-                SELECT 
+                SELECT
                     l.driver_id,
                     MIN(l.lap_time) as best_lap
                 FROM laps l
                 JOIN sessions s ON l.session_id = s.session_id
                 WHERE s.track_name = ? AND l.is_valid_for_best = 1 AND l.lap_time > 0
+                {official_filter}
                 GROUP BY l.driver_id
             )
-            SELECT 
+            SELECT
                 d.last_name as driver_name,
                 d.short_name,
                 dbl.best_lap,
@@ -2771,10 +2793,11 @@ class ACCWebDashboard:
             JOIN sessions s ON l.session_id = s.session_id
             JOIN drivers d ON dbl.driver_id = d.driver_id
             WHERE s.track_name = ? AND l.is_valid_for_best = 1
+            {official_filter}
             ORDER BY dbl.best_lap ASC
             LIMIT 50
         '''
-        
+
         return self.safe_sql_query(query, [track_name, track_name])
     
     def show_track_charts(self, track_name: str, leaderboard_df: pd.DataFrame):
