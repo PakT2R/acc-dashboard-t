@@ -1,7 +1,7 @@
 {
     "community": {
         "name": "Terronia Racing",
-        "description": "if you see this please edit it in acc_config.json"
+        "description": "Divertimento, rispetto e fair play"
     },
     "social": {
         "discord": "https://discord.gg/HRBkPehkxE",
@@ -10,4 +10,5 @@
     "database": {
         "path": "acc_stats.db"
     }
+
 }
