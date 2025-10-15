@@ -18,7 +18,7 @@ from typing import Optional, Dict, List, Tuple
 
 # Configurazione pagina
 st.set_page_config(
-    page_title="ACC Server Dashboard",
+    page_title="Terronia Standings Dashboard",
     page_icon="🏁",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -79,8 +79,8 @@ class ACCWebDashboard:
         # Configurazione di default
         default_config = {
             "community": {
-                "name": os.getenv('ACC_COMMUNITY_NAME', "[E?]nigma Overdrive"),
-                "description": os.getenv('ACC_COMMUNITY_DESC', "ACC Racing Community")
+                "name": os.getenv('ACC_COMMUNITY_NAME', "Community Name"),
+                "description": os.getenv('ACC_COMMUNITY_DESC', "Community Desc")
             },
             "database": {
                 "path": os.getenv('ACC_DATABASE_PATH', "acc_stats.db")
@@ -3365,9 +3365,10 @@ class ACCWebDashboard:
                 import base64
                 with open(banner_path, "rb") as img_file:
                     img_base64 = base64.b64encode(img_file.read()).decode()
-                
+
                 community_name = self.config['community']['name']
-                
+                community_description = self.config['community'].get('description', 'ACC Server Dashboard')
+
                 # Banner con background image e testo sovrapposto via CSS puro
                 st.markdown(f"""
                 <div style="
@@ -3392,7 +3393,7 @@ class ACCWebDashboard:
                         color: white;
                     ">
                         <h1 style="margin: 0; font-size: 3rem; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">🏁 {community_name}</h1>
-                        <h3 style="margin: 0.5rem 0 0 0; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">ACC Server Dashboard</h3>
+                        <h3 style="margin: 0.5rem 0 0 0; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">{community_description}</h3>
                     </div>
                 </div>
                 
@@ -3431,10 +3432,11 @@ class ACCWebDashboard:
             else:
                 # Fallback con il riquadro blu originale se non c'è il banner
                 community_name = self.config['community']['name']
+                community_description = self.config['community'].get('description', 'ACC Server Dashboard')
                 st.markdown(f"""
                 <div class="main-header">
                     <h1>🏁 {community_name}</h1>
-                    <h3>ACC Server Dashboard</h3>
+                    <h3>{community_description}</h3>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -3517,8 +3519,8 @@ def main():
         st.sidebar.markdown("---")
         st.sidebar.markdown(f"""
         <div style="text-align: center; color: #666; font-size: 0.8rem;">
-            <p>🏁 ACC Server Dashboard</p>
-            <p>Community: {dashboard.config['community']['name']}</p>
+            <p>🏁 {dashboard.config['community']['name']}</p>
+            <p>{dashboard.config['community'].get('description', 'ACC Server Dashboard')}</p>
             {f'<p>🌐 Cloud Deployment</p>' if dashboard.is_github_deployment else '<p>🏠 Sviluppo Locale</p>'}
         </div>
         """, unsafe_allow_html=True)
