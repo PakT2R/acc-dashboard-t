@@ -1978,7 +1978,7 @@ class ACCWebDashboard:
         date_to_str = (date_to + timedelta(days=1)).strftime('%Y-%m-%d')
         
         query = '''
-            SELECT 
+            SELECT
                 s.session_id,
                 s.session_type,
                 s.track_name,
@@ -1999,12 +1999,14 @@ class ACCWebDashboard:
                     sr.best_lap
                 FROM session_results sr
                 JOIN drivers d ON sr.driver_id = d.driver_id
-                WHERE sr.best_lap = (
+                WHERE sr.best_lap > 0
+                AND sr.best_lap = (
                     SELECT MIN(sr2.best_lap)
                     FROM session_results sr2
                     WHERE sr2.session_id = sr.session_id
                     AND sr2.best_lap > 0
                 )
+                GROUP BY sr.session_id
             ) fastest ON s.session_id = fastest.session_id
             LEFT JOIN competitions c ON s.competition_id = c.competition_id
             WHERE DATE(s.session_date) >= ? AND DATE(s.session_date) < ?
